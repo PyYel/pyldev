@@ -1,0 +1,34 @@
+site_name: My Wiki - A demo for PyYel
+
+nav:
+  # Note how the mkdocs.yml requires 'page/index.html' and not 'page.md' relative paths
+
+  - Home: ./index.html
+
+  - About: 
+    - The data: home/about_the_data/index.html
+
+    # You must choose between this:
+    # - The features: 
+    #   - Feature 1: home/about_the_features/feature_1/index.html
+    #   - Feature 2: home/about_the_features/feature_2/index.html
+
+    # And this:
+    - The features: home/about_the_features/index.html 
+
+    # This is sadly not possible:
+    # - The features: home/about_the_features/index.html
+    #   - Feature 1: home/about_the_features/feature_1/index.html
+    #   - Feature 2: home/about_the_features/feature_2/index.html
+
+
+theme: material
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - codehilite
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.extra
