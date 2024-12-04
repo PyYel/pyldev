@@ -5,7 +5,7 @@ def process_markdown_file(src, dest):
     with open(src, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    processed_content = content.replace('.md', '')
+    processed_content = content.replace('./', '../').replace('.md', '')
     with open(dest, 'w', encoding='utf-8') as f:
         f.write(processed_content)
 
