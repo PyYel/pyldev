@@ -1,11 +1,29 @@
 import os, sys
 import shutil
+import re
 
 def process_markdown_file(src, dest):
     with open(src, 'r', encoding='utf-8') as f:
         content = f.read()
-    
-    processed_content = content.replace('./', '../').replace('.md', '/index.html')
+
+    # Replaces file explorer relative paths to html relative paths
+    # ./ with ../ 
+    processed_content = content
+    processed_content = re.sub(r'(\(\./)', '(../', content) # For regular markdown
+    processed_content = re.sub(r'(src="\./)', r'src="../', content) # For html beacon
+    # ../ with ../../
+    processed_content = re.sub(r'(\(\.\./)', '(../../', processed_content)
+    processed_content = re.sub(r'(src="\.\./)', r'src="../../', processed_content)
+    # .../ with ../../../
+    processed_content = re.sub(r'(\(\.\.\./)', '(../../../', processed_content)
+    processed_content = re.sub(r'(src="\.\.\./)', r'src="../../../', processed_content)
+    # ..../ with ../../../../
+    processed_content = re.sub(r'(\(\.\.\.\./)', '(../../../../', processed_content)
+    processed_content = re.sub(r'(src="\.\.\.\./)', r'src="../../../../', processed_content)
+
+    # Replace .md with /index.html
+    processed_content = re.sub(r'\.md', '/index.html', processed_content)
+
     with open(dest, 'w', encoding='utf-8') as f:
         f.write(processed_content)
 
