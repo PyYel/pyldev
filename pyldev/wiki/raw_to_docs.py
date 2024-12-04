@@ -5,7 +5,7 @@ def process_markdown_file(src, dest):
     with open(src, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    processed_content = content.replace('.md', '/index.html')
+    processed_content = content.replace('./', '../').replace('.md', '/index.html')
     with open(dest, 'w', encoding='utf-8') as f:
         f.write(processed_content)
 
@@ -51,13 +51,13 @@ def copy_assets_contents(src, dest):
             else:
                 shutil.copy2(s, d)  
     except:
-        print("Warning: no /assets folder found at the root of /raw.")
+        print("Warning: no /assets folder found at the root of /wiki.")
         return None
 
 
 if __name__ == "__main__":
-    src_directory = os.path.join(os.getcwd(), "raw")
-    dest_directory = os.path.join(os.getcwd(), "docs")
+    src_directory = os.path.join(os.path.dirname(__file__), "raw")
+    dest_directory = os.path.join(os.path.dirname(__file__), "docs")
     
     # Ensure the destination directory exists
     os.makedirs(dest_directory, exist_ok=True)

@@ -40,13 +40,12 @@ def copy_assets_contents(src, dest):
                 else:
                     shutil.copy2(s, d)  
     except:
-        print("Warning: no /assets folder found at the root of /raw.")
         return None
 
 
 if __name__ == "__main__":
-    src_directory = os.path.join(os.getcwd(), "raw")
-    dest_directory = os.path.join(os.getcwd(), "gitlab")
+    src_directory = os.path.join(os.path.dirname(__file__), "raw")
+    dest_directory = os.path.join(os.path.dirname(__file__), "gitlab")
     
     # Ensure the destination directory exists
     os.makedirs(dest_directory, exist_ok=True)
