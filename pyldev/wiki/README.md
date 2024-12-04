@@ -10,8 +10,8 @@ Create a wiki in the ``/wiki`` folder. This should be markdown only, and the fil
 - A good practice shoud be to have a page for every eponymous folder
 
 ``` bash
-# In the /wiki folder:
-wiki
+# In the /raw folder:
+raw
 ├── _sidebar.md                     # For custom sidebar on gitlab and mkdocs
 ├── assets/                         # Folder containing images, diagrams, etc.
 │   ├── logo.png                    # Project logo or branding
@@ -27,6 +27,12 @@ wiki
 ```
 
 You may copy the /pyldev/wiki repository to your project, but it is recommended to keep the folder structure identical to ensure the reliability of the QoL programs hat come with it.
+
+The markdown pages expect relative path starting from the ``/raw`` folder, i.e:
+
+- One folder below the root: ``./assets/logo.png``
+- Two folders below the root: ``../home/about_the_features/about_the_features.md``
+- And so on, down to 4 folders below (deeper branches require to update ``raw_to_mkdocs.py`` processing).
 
 ## Host on Gitlab
 When creating a wiki on Gitlab, the webpages naming is changed:
