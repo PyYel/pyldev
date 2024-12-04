@@ -1,5 +1,5 @@
 
-# **[Home](..md)**  <!-- This ..md will be replaced to ./home.md when convering to mkdocs. This is the only path exception. -->
+# **[Home](.md)**  <!-- This is a trick to redirect the root/home/index.html to the root/index.html -->
 
 
 Welcome to your wiki ! This homepage is similar to the sidebar, but this is not mandatorry. 
