@@ -6,7 +6,7 @@ python raw_to_docs.py
 
 :: Install mkdocs and mkdocs-material if not already installed
 echo 2/5 Installing mkdocs and mkdocs-material...
-pip install mkdocs mkdocs-material --quiet
+pip install mkdocs mkdocs-material --quiet >nul 2>&1
 
 :: Build the MkDocs site
 echo 3/5 Building the mkdocs site...
