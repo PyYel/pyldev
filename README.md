@@ -56,4 +56,4 @@ See the ``.bat`` files and the module [README](./pyldev/wiki/README.md) to use t
 
 ## Note
 
-See also ***PyYel-MLOps*** and ***PyYel-CloudOps*** for AI and deployment tools.
+See also [***PyYel-MLOps***](https://github.com/PyYel/PyYel-MLOps) and [***PyYel-CloudOps***](https://github.com/PyYel/PyYel-CloudOps) for AI and deployment tools.
