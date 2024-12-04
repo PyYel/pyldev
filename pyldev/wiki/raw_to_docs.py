@@ -51,26 +51,22 @@ def copy_assets_contents(src, dest):
             else:
                 shutil.copy2(s, d)  
     except:
-        print("Warning: no /assets folder found at the root of /wiki.")
+        print("Warning: no /assets folder found at the root of /raw.")
         return None
 
 
 if __name__ == "__main__":
-    confirm = input("This action will copy and convert the markdown content from /wiki into /docs. [Y/n]: ")
-    if confirm in ["Y", "y", ""]:
-        src_directory = os.path.join(os.getcwd(), "wiki")
-        dest_directory = os.path.join(os.getcwd(), "docs")
-        
-        # Ensure the destination directory exists
-        os.makedirs(dest_directory, exist_ok=True)
-        
-        # Process the markdown files
-        copy_and_process_markdown_files(src_directory, dest_directory)
+    src_directory = os.path.join(os.getcwd(), "raw")
+    dest_directory = os.path.join(os.getcwd(), "docs")
+    
+    # Ensure the destination directory exists
+    os.makedirs(dest_directory, exist_ok=True)
+    
+    # Process the markdown files
+    copy_and_process_markdown_files(src_directory, dest_directory)
 
-        # Copies Assets content
-        copy_assets_contents(src_directory, dest_directory)
+    # Copies Assets content
+    copy_assets_contents(src_directory, dest_directory)
 
-        # creates index.md as a copy of Home.md
-        copy_home_to_index(dest_directory)
-    else:
-        sys.exit("wiki_to_docs.py clean exit")
+    # creates index.md as a copy of Home.md
+    copy_home_to_index(dest_directory)

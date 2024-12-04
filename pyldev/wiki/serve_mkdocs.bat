@@ -1,30 +1,21 @@
 @echo off
-:: Check if .venv exists
-IF NOT EXIST .venv (
-    echo No virtual environment found. Creating .venv...
-    python -m venv .venv
-    echo Virtual environment .venv created.
-)
-
-:: Activate the virtual environment
-echo Activating virtual environment...
-call .venv\Scripts\activate
 
 :: Converting the wiki to the mkdocs format
-python wiki_to_docs.py
+echo 1/5 Converting raw markdown to mkdocs format...
+python raw_to_docs.py
 
 :: Install mkdocs and mkdocs-material if not already installed
-echo Installing mkdocs and mkdocs-material...
+echo 2/5 Installing mkdocs and mkdocs-material...
 pip install mkdocs mkdocs-material --quiet
 
 :: Build the MkDocs site
-echo Building the MkDocs site...
-mkdocs build
+echo 3/5 Building the mkdocs site...
+mkdocs build >nul 2>&1
 
 :: Serve the MkDocs site locally
-echo Serving the MkDocs site locally...
-mkdocs serve
+echo 4/5 Serving the mkdocs site locally...
+@REM mkdocs serve >nul 2>&1
+start /B "" cmd /c "mkdocs serve >nul 2>&1"
 
-echo Files from /wiki converted and moved to /docs. An error seem to have appeared when serving the local server: see the exception above.
+echo 5/5 mkdocs server up locally http://127.0.0.1:8000/ ...
 
-pause

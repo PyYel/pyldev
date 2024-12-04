@@ -1,5 +1,6 @@
 
-# **[Home](./home.md)**
+# **[Home](..md)**  <!-- This ..md will be replaced to ./home.md when convering to mkdocs. This is the only path exception. -->
+
 
 Welcome to your wiki ! This homepage is similar to the sidebar, but this is not mandatorry. 
 
@@ -11,8 +12,8 @@ A quick summary of the data usage of the app.
 ### **[About the features](./home/about_the_features.md)** <br>
 The purpose of this app!
 
-- ###### **[Feature_1](./home/about_the_features/feature_1.md)** - This page is about the feature 1<br>
-- ###### **[Feature 2](./home/about_the_features/feature_2.md)** - This page is about feature 2, which is more complexe than feature 1 ! <br>
+- **[Feature_1](./home/about_the_features/feature_1.md)** - This page is about the feature 1<br>
+- **[Feature 2](./home/about_the_features/feature_2.md)** - This page is about feature 2, which is more complexe than feature 1 ! <br>
 
 
 <!--

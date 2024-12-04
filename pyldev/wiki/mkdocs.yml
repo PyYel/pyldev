@@ -24,6 +24,13 @@ nav:
 
 theme: material
 
+# For customization
+# theme:
+#   name: 'material'
+#   palette:
+#     primary: 'green'
+#     accent: 'black'
+
 markdown_extensions:
   - toc:
       permalink: true
