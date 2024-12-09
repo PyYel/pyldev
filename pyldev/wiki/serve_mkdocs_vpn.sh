@@ -27,7 +27,7 @@ echo "5/6 Serving the mkdocs site on Local Network..."
 nohup mkdocs serve --dev-addr=$LOCAL_IP:8000 > /dev/null 2>&1 &
 
 # Pause to keep the script running
-echo "6/6 Server is running, you may press [Enter] key to exit."
+echo "6/6 Server is running, close this terminal to stop it."
 
 # Display the local IP address with color
 GREEN='\033[0;32m'

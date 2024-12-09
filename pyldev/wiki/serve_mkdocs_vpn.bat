@@ -27,7 +27,7 @@ if "%LOCAL_IP%"=="" (
 echo 5/6 Serving the mkdocs site on Local Network...
 start /B "" cmd /c "mkdocs serve --dev-addr=%LOCAL_IP%:8000 >nul 2>&1"
 
-echo 6/6 Server is running, you may exit this terminal.
+echo 6/6 Server is running, close this terminal to stop it.
 
 :: Display the local IP address with color
 echo.
