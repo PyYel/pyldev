@@ -161,3 +161,4 @@ cython_debug/
 
 .venv*
 *.log
+!pyldev/setup/lib/ 
