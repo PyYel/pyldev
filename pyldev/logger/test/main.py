@@ -8,28 +8,13 @@ if __name__ == "__main__":
 
 from logger import Logger, LoggerPrintIntercept
 
-# This a wrong use, and will result in double logging (messages are logged twice by Logger and LoggerPrintIntercept respectively.)
-if 0:
-    logger_standard = Logger()
-    logger_standard.log_info("test message")
-    logger_print = LoggerPrintIntercept()
-    logger_print.start()
+logger = LoggerPrintIntercept(logs_dir=os.path.dirname(__file__))
+# logger.auto_config()
+logger.custom_config()
+logger.start()
 
-    print("an other test")
+print("This is a debug log")
+logger.log_error("This is a custom logged error.")
+print("This an other debug log")
 
-    logger_print.stop()
-
-    print("a stopped test")
-
-    logger_standard.log_info("no longer tracking prints")
-
-# This englobe the standard Logger features, and should be the only logger used, when needed.
-if 1:
-    print_logger = LoggerPrintIntercept()
-    print_logger.log_info("starting print logging")
-    print_logger.start()
-    print("this is a test log message")
-    print_logger.log_info("stopping print logging")
-    print_logger.stop()
-    print("this musn't appear in the logs content")
-    print_logger.log_debug("Check if the print logger stopped correctly.")
+# logger will eventually crash when program stops (no flush), which is intended.

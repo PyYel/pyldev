@@ -8,13 +8,13 @@ class LoggerPrintIntercept(Logger):
 
     TODO: add a PyYel (print) logs only interceptor.
     """
-    def __init__(self, logs_dir: str = os.getcwd(), progress_dir: str = os.getcwd()):
+    def __init__(self, logs_dir: str = os.getcwd()):
         """
-        Initializes the standard Logger function.
+        Initializes the standard Logger function with a ``print()`` statement interceptor. This catch any stdout output, such as ``tqdm`` progress bar... 
         """
-        super().__init__(logs_dir, progress_dir)
+        super().__init__(logs_dir=logs_dir)
+
         self.original_stdout = sys.stdout
-        self.log_history = []
 
         return None
 
@@ -22,7 +22,6 @@ class LoggerPrintIntercept(Logger):
     def write(self, message: str):
         """Saves the message to the history."""
         if message.strip():  # Avoid logging empty lines
-            self.log_history.append(message)
             self.log_debug(message.strip())  # Log using the parent logger
 
         return None
