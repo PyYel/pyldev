@@ -11,7 +11,7 @@ class Logger():
         Logs verbose and progress bars. Stdout can be cmd, file, none, or both.
         """
 
-        self.logs_dir = os.path.join(logs_dir, str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S")))
+        self.logs_dir = os.path.join(logs_dir, str(datetime.now().strftime("%Y-%m-%d")))
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
@@ -69,7 +69,7 @@ class Logger():
             os.makedirs(self.logs_dir, exist_ok=True)
 
             # Create handlers
-            file_handler = logging.FileHandler(os.path.join(self.logs_dir, "app.log"))
+            file_handler = logging.FileHandler(os.path.join(self.logs_dir, f"{datetime.now().strftime("%H-%M-%S")}-app.log"))
             console_handler = logging.StreamHandler()
 
             # Set level for handlers
@@ -92,6 +92,8 @@ class Logger():
                 self.logger.addHandler(console_handler)
                 self.logger.info("Logging handler configured for console output.")
             if file_stdout and console_stdout:
+                self.logger.info("Logging handlers configured for both console and file output.")
+            if not file_stdout and not console_stdout:
                 self.logger.warning("No logging handler configured. Logging will be muted.")
 
 
