@@ -45,7 +45,7 @@ class Logger():
             else:
                 # Others OS
                 os.makedirs(self.logs_dir, exist_ok=True)
-                file_handler = logging.FileHandler(os.path.join(self.logs_dir, "app.log"))
+                file_handler = logging.FileHandler(os.path.join(self.logs_dir, f"{datetime.now().strftime('%H-%M-%S')}-app.log"))
                 file_handler.setLevel(logging.DEBUG)
                 file_handler.setFormatter(formatter)
 
@@ -69,7 +69,7 @@ class Logger():
             os.makedirs(self.logs_dir, exist_ok=True)
 
             # Create handlers
-            file_handler = logging.FileHandler(os.path.join(self.logs_dir, f"{datetime.now().strftime("%H-%M-%S")}-app.log"))
+            file_handler = logging.FileHandler(os.path.join(self.logs_dir, f"{datetime.now().strftime('%H-%M-%S')}-app.log"))
             console_handler = logging.StreamHandler()
 
             # Set level for handlers
@@ -82,18 +82,17 @@ class Logger():
             console_handler.setFormatter(formatter)
 
             # Add handlers to the logger
-            # If both file_stdout and console_stdout are False, logging is muted
-            if file_stdout:
-                # If logging should be passed to console output
+            if file_stdout and console_stdout:
                 self.logger.addHandler(file_handler)
-                self.logger.info("Logging handler configured for console output.")
-            if console_stdout:
-                # If logging should be passed to file output
+                self.logger.addHandler(console_handler)
+                self.logger.info("Logging handlers configured for both console and file output.")
+            elif file_stdout:
+                self.logger.addHandler(file_handler)
+                self.logger.info("Logging handler configured for file output.")
+            elif console_stdout:
                 self.logger.addHandler(console_handler)
                 self.logger.info("Logging handler configured for console output.")
-            if file_stdout and console_stdout:
-                self.logger.info("Logging handlers configured for both console and file output.")
-            if not file_stdout and not console_stdout:
+            elif not file_stdout and not console_stdout:
                 self.logger.warning("No logging handler configured. Logging will be muted.")
 
 
