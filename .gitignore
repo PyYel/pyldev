@@ -163,3 +163,4 @@ cython_debug/
 *.log
 !pyldev/setup/lib/ 
 *.txt
+*.html
