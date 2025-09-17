@@ -1,8 +1,8 @@
 @echo off
-echo "Starting the backend server..."
+echo "Starting the containers..."
 
 cd ..
 docker-compose -f "docker-compose.yml" -p "<docker-stack>" up -d
 
-echo "Program completed. If an error arose, see the message above."
+echo "Container stack started. If an error arose, see the message above."
 pause

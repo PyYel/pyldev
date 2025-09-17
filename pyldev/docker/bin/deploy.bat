@@ -11,10 +11,10 @@ set ECR_URI=%AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION_NAME%.amazonaws.com/%ECR_REPO_N
 
 REM Make sure you're logged in: aws sso login --profile <profile>
 REM Login to AWS ECR
-aws --profile %AWS_PROFILE_ADMIN% ecr get-login-password --region %AWS_REGION_NAME% | docker login --username AWS --password-stdin %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION_NAME%.amazonaws.com
+aws ecr get-login-password --region %AWS_REGION_NAME% --profile %AWS_PROFILE_ADMIN% | docker login --username AWS --password-stdin %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION_NAME%.amazonaws.com
 
 REM Ensure repository exists
-aws --profile %AWS_PROFILE_ADMIN% ecr describe-repositories --repository-names %ECR_REPO_NAME% --region %AWS_REGION_NAME% >nul 2>&1
+aws ecr describe-repositories --repository-names %ECR_REPO_NAME% --region %AWS_REGION_NAME% --profile %AWS_PROFILE_ADMIN% >nul 2>&1
 if errorlevel 1 (
     echo "ECR repo not found. Creating it..."
     aws --profile %AWS_PROFILE_ADMIN% ecr create-repository --repository-name %ECR_REPO_NAME% --region %AWS_REGION_NAME%
@@ -29,5 +29,5 @@ docker buildx build --platform linux/amd64,linux/arm64 ^
   -t "%ECR_URI%:latest" ^
   --push .
 
-echo "Multi-arch build and push completed successfully."
+echo "Multi-arch build and push completed. If an error araised, see the exception above."
 pause

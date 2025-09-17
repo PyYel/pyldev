@@ -8,6 +8,6 @@ docker build -f "Dockerfile" -t "<image>:latest" .
 
 docker image prune -f
 
-echo "Local build completed successfully."
+echo "Local build completed successfully. If an error araised, see the exception above."
 
 pause
