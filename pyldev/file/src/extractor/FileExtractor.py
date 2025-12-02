@@ -10,5 +10,7 @@ class FileExtractor(File):
 
 
     @abstractmethod
-    def extract(self):
+    def extract(self, *args, **kwargs):
         raise NotImplementedError
+    
+    

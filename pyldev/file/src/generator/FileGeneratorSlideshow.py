@@ -21,9 +21,9 @@ class FileGeneratorSlideshow(FileGenerator):
         super().__init__()
 
         
-    def read_file(self, *args, **kwargs):
-        return super().read_file(*args, **kwargs)
+    def _read_file(self, *args, **kwargs):
+        return super()._read_file(*args, **kwargs)
     
-    def save_file(self, *args, **kwargs):
-        return super().save_file(*args, **kwargs)
+    def _save_file(self, *args, **kwargs):
+        return super()._save_file(*args, **kwargs)
     
