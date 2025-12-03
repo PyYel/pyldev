@@ -1,0 +1,16 @@
+services:
+
+  server:
+    image: server
+    container_name: server
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    command: ["sh", "-c", "cd app && uvicorn main:app --host 0.0.0.0 --port 8000"]
+    networks:
+      - database_esnet
+
+networks:
+  database_esnet:
+    external: true

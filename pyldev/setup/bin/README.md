@@ -1,3 +1,1 @@
-# bin
-
-The executables, such as ``.bat``, ``.sh`` or ``.exe`` files.
+These are bin and docker templates. They are not supposed to work by themselves, but lay down a fundation for database deployment.
