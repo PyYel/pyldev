@@ -2,5 +2,5 @@ mkdocs
 mkdocs-material
 tqdm
 streamlit
-unstructured[csv , doc , docx , epub , image , md , odt , org , pdf , ppt , pptx , rtf , rst , tsv , xlsx , paddleocr]
+unstructured[csv , doc , docx , epub , image , md , odt , org , pdf , ppt , pptx , rtf , rst , tsv , xlsx ]
 pytesseract
