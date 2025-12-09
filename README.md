@@ -1,4 +1,23 @@
-# PyYel-DevOps
+<p align="center">
+  <img src="https://imgur.com/FoINV9A.png" width="320" alt="DEVOPS">
+</p>
+
+<p align="center">
+    <img src="https://img.shields.io/badge/MkDocs-latest-526CFE?logo=markdown&logoColor=white" />
+    <img src="https://img.shields.io/badge/MkDocs%20Material-latest-2196F3?logo=materialdesign&logoColor=white" />
+    <img src="https://img.shields.io/badge/Streamlit-latest-FF4B4B?logo=streamlit&logoColor=white" />
+    <img src="https://img.shields.io/badge/TQDM-latest-FFC107?logo=python&logoColor=black" />
+    <img src="https://img.shields.io/badge/Unstructured-docs%20%26%20ocr-4CAF50" />
+    <img src="https://img.shields.io/badge/PyTesseract-OCR-5A9FD4" />
+    <img src="https://img.shields.io/badge/PaddleOCR-enabled-00A98F" />
+    <img src="https://img.shields.io/badge/PDF-supported-red" />
+    <img src="https://img.shields.io/badge/Office%20Docs-supported-blue" />
+    <img src="https://img.shields.io/badge/code%20style-black-000000.svg" />
+</p>
+
+
+
+# PyYel Dev Ops
 
 The PyYel Development Operations extension. This repository regroups tools to simplify and speed up Python application back and front development process.
 
