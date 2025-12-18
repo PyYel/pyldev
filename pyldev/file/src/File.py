@@ -8,19 +8,23 @@ import json
 import uuid
 import logging
 from datetime import datetime
-
 from abc import ABC, abstractmethod
+
+from pyldev import _config_logger
 
 class File(ABC):
 
-    def __init__(self, logs_name: str) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
         self.text_batches: List[str] = []
         self.file_path: Optional[str] = None
         self.file_bytes: Optional[BytesIO] = None
 
-        self._config_logger(logs_name=logs_name)
+        self.logger = _config_logger(
+            logs_name="File",
+            logs_output=["console"],
+        )
 
 
     def _read_file(self) -> BytesIO:

@@ -3,10 +3,17 @@ from typing import Optional, List, Dict, Any, Iterable
 from io import BytesIO
 import os
 import shutil
+from collections import defaultdict
 
 # unstructured
-from unstructured.partition.auto import partition
-from unstructured.staging.base import elements_to_dicts
+from unstructured.partition.pdf import partition_pdf
+from unstructured.partition.text import partition_text
+from unstructured.chunking.basic import chunk_elements
+from unstructured.documents.elements import Image as ImageElement
+
+from pdf2image import convert_from_path
+from PIL import Image
+import pytesseract
 
 # Base class import (assume present)
 from .FileExtractor import FileExtractor
@@ -32,221 +39,206 @@ class FileExtractorDocument(FileExtractor):
         chunk_size: int = 2000,          # char-based chunk size for batching
         chunk_overlap: int = 200         # char overlap between chunks
     ) -> None:
+        """
+        """
         super().__init__()
+
         self.file_path = file_path
-        self.file_bytes = file_bytes
+        self.chunk_max_char = 1000
+        self.chunk_overlap = chunk_overlap
+        self.ocr_fallback = True
+        self.ocr_lang = "eng"
 
-        self.elements: List[Any] = []
-        self.grouped_blocks: List[Dict[str, Any]] = []
-        self.text_batches: List[str] = []
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
-        # config
-        self.prefer_hi_res = prefer_hi_res
-        self.default_strategy = default_strategy
-        self.chunk_size = int(chunk_size)
-        self.chunk_overlap = int(chunk_overlap)
+    def extract(self, force_ocr: bool = False) -> List[Dict[str, Any]]:
+        elements = self._extract_with_fallback(self.file_path, force_ocr=force_ocr)
+        if not elements:
+            return []
+
+        # Group elements by page
+        page_map: Dict[int, list] = {}
+        for el in elements:
+            page = getattr(el.metadata, "page_number", None) #or el.metadata.get("page_number")
+            if page is None:
+                continue
+            page_map.setdefault(page, []).append(el)
+
+        chunks_dicts: List[Dict[str, Any]] = []
+
+        # Chunk per page (guarantees duplication across pages if needed)
+        for page_number, page_elements in sorted(page_map.items()):
+            page_chunks = chunk_elements(
+                page_elements,
+                max_characters=self.chunk_max_char,
+                overlap=self.chunk_overlap,
+            )
+
+            for c in page_chunks:
+                text = getattr(c, "text", "").strip()
+                if not text:
+                    continue
+
+                chunks_dicts.append(
+                    {
+                        "type": getattr(c, "category", "Text"),
+                        "text": text,
+                        "metadata": {
+                            "page_number": page_number,
+                        },
+                    }
+                )
+        chunks_dicts = self._group_chunks_by_page(chunks=chunks_dicts)
+        return chunks_dicts
 
 
-
-    # -------------------------
-    # Choose partition strategy
-    # -------------------------
-    def _choose_pdf_strategy(self) -> str:
+    def _group_chunks_by_page(self,
+        chunks: List[Dict[str, Any]],
+        separator: str = "\n\n",
+    ) -> List[Dict[str, Any]]:
         """
-        Choose PDF parsing strategy:
-          - 'hi_res' : requires poppler (python-poppler / poppler-utils)
-          - 'ocr_only': requires tesseract
-          - 'fast' : safe default (pdfminer / text extraction)
         """
-        # detect Poppler: poppler-utils includes `pdftoppm` or `pdftotext`
-        has_pdftoppm = self._has_program("pdftoppm")
-        has_pdftotext = self._has_program("pdftotext")
-        has_tesseract = self._has_program("tesseract")
 
-        if self.prefer_hi_res and (has_pdftoppm or has_pdftotext):
-            return "hi_res"
-        if has_tesseract:
-            return "ocr_only"
-        return self.default_strategy
+        pages = defaultdict(list)
 
-    # -------------------------
-    # Extract raw elements
-    # -------------------------
-    def _extract_elements(self, strategy: Optional[str] = None) -> List[Any]:
-        """
-        Uses unstructured.partition to extract elements.
-        strategy: "hi_res", "fast", "ocr_only" or None -> auto for PDF
-        """
-        self._read_file()
+        for chunk in chunks:
+            page = chunk.get("metadata", {}).get("page_number")
+            if page is None:
+                continue
+            pages[page].append(chunk["text"])
 
-        # If file_path is available and path extension exists, we can hint partition,
-        # but partition(file=BytesIO) + strategy will handle it.
-        if not strategy:
-            # If file is PDF (by extension), pick pdf strategy detection
-            ext = (os.path.splitext(self.file_path or "")[1] or "").lower()
-            if ext == ".pdf":
-                strategy = self._choose_pdf_strategy()
-            else:
-                # non-pdf: let unstructured choose best (None -> auto)
-                strategy = None
+        grouped = []
+        for page_number in sorted(pages):
+            grouped.append(
+                {
+                    "type": "Page",
+                    "text": separator.join(pages[page_number]).strip(),
+                    "metadata": {"page_number": page_number},
+                }
+            )
 
-        partition_kwargs = {}
-        if strategy:
-            partition_kwargs["strategy"] = strategy
+        return grouped
+    # ------------------------------------------------------------------
+    # Extraction orchestration
+    # ------------------------------------------------------------------
 
-        # unstructured accepts file=BytesIO or filename
-        if self.file_path:
-            # prefer passing filename for unstructured to detect type
-            elements = partition(filename=self.file_path, **partition_kwargs)
-        else:
-            elements = partition(file=self.file_bytes, **partition_kwargs)
+    def _extract_with_fallback(self, file_path: str, force_ocr: bool = False):
+        
+        # Extract tex and images
+        if not force_ocr:
+            elements = self._extract_unstructured_native(file_path)
+        else: 
+            elements = []
+        
+        # Image only OCR
+        if elements and self.ocr_fallback:
+            elements = self._ocr_image_elements(elements)
 
-        # store
-        self.elements = elements
+        # Full document OCR for scanned docs, ...
+        if (self.ocr_fallback and self._is_effectively_empty(elements)) or force_ocr:
+            elements = self._extract_pdf_ocr(file_path)
+            print(elements)
+
         return elements
 
-    # -------------------------
-    # Convert to dicts (serializable)
-    # -------------------------
-    def to_dicts(self) -> List[Dict[str, Any]]:
-        if not self.elements:
-            self._extract_elements()
-        return elements_to_dicts(self.elements)
+    # ------------------------------------------------------------------
+    # Native PDF extraction (no OCR)
+    # ------------------------------------------------------------------
 
-    # -------------------------
-    # Group elements into blocks
-    # -------------------------
-    def _group_elements(self, elements: Iterable[Any]) -> List[Dict[str, Any]]:
-        """
-        Group elements using:
-         - explicit Titles / Headings -> start new block
-         - page_number metadata -> page boundaries
-         - small delimiter heuristics (horizontal rule, --- lines) to split
-        Returns a list of blocks: {"title": Optional[str], "page": Optional[int], "content":[str], "meta": [...]}
-        """
-        blocks: List[Dict[str, Any]] = []
-        current = {"title": None, "page": None, "content": [], "meta": []}
+    def _extract_unstructured_native(self, file_path: str):
+        try:
+            return partition_pdf(
+                filename=file_path,
+                strategy="fast",
+                languages=["en"],
+                infer_table_structure=True,
+                extract_images=True,
+                extract_image_block_types=["Image"],
+                include_page_breaks=False,
+                ocr_strategy="never",
+            )
+        except Exception:
+            return []
+
+    # ------------------------------------------------------------------
+    # OCR only image elements
+    # ------------------------------------------------------------------
+
+    def _ocr_image_elements(self, elements):
+        processed = []
 
         for el in elements:
-            # defensive: many unstructured elements provide .to_dict()
-            try:
-                el_dict = el.to_dict()
-            except Exception:
-                # fallback if element already dict-like
-                el_dict = el if isinstance(el, dict) else {"text": str(el)}
+            if isinstance(el, ImageElement):
+                image_path = getattr(el.metadata, "image_path", None) #or el.metadata.get("page_number")
+                page_number = getattr(el.metadata, "page_number", None) #or el.metadata.get("page_number")
 
-            text = (el_dict.get("text") or "").strip()
+                if not image_path:
+                    continue
+
+                try:
+                    img = Image.open(image_path)
+                    text = pytesseract.image_to_string(
+                        img, lang=self.ocr_lang
+                    ).strip()
+                except Exception:
+                    continue
+
+                if text:
+                    processed.extend(
+                        partition_text(
+                            text=text,
+                            metadata={
+                                "page_number": page_number,
+                                "source": "image_ocr",
+                            },
+                        )
+                    )
+            else:
+                processed.append(el)
+
+        return processed
+
+    # ------------------------------------------------------------------
+    # Full-page OCR fallback (last resort)
+    # ------------------------------------------------------------------
+
+    def _extract_pdf_ocr(self, file_path: str):
+        try:
+            images = convert_from_path(file_path, dpi=300)
+        except Exception as e:
+            print(e)
+            return []
+        print(len(images))
+        elements = []
+
+        for page_num, img in enumerate(images, start=1):
+            text = pytesseract.image_to_string(
+                img, lang=self.ocr_lang
+            ).strip()
+
             if not text:
                 continue
 
-            el_type = el_dict.get("type", "").lower()
-            meta_page = el_dict.get("metadata", {}).get("page_number")
+            elements.extend(
+                partition_text(
+                    text=text,
+                    metadata={"page_number": page_num, "source": "page_ocr"},
+                )
+            )
 
-            # heading/title detection
-            if el_type in ("title", "heading", "h1", "h2", "h3"):
-                # push current if has content
-                if current["content"]:
-                    blocks.append(current)
-                current = {"title": text, "page": meta_page, "content": [], "meta": [el_dict]}
-                continue
+        return elements
 
-            # delimiter lines heuristic
-            if text.strip() in ("---", "***", "___") or (len(text) < 4 and set(text) <= set("-_=")):
-                if current["content"]:
-                    blocks.append(current)
-                    current = {"title": None, "page": meta_page, "content": [], "meta": []}
-                continue
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
-            # page change
-            if meta_page is not None and current["page"] is not None and meta_page != current["page"]:
-                if current["content"]:
-                    blocks.append(current)
-                    current = {"title": None, "page": meta_page, "content": [], "meta": []}
-                else:
-                    current["page"] = meta_page
-
-            # append
-            current["content"].append(text)
-            current["meta"].append(el_dict)
-
-        if current["content"]:
-            blocks.append(current)
-
-        self.grouped_blocks = blocks
-        return blocks
-
-    # -------------------------
-    # Build text blocks and optionally chunk them
-    # -------------------------
-    def _build_text_batches(self, blocks: List[Dict[str, Any]], chunk: bool = True) -> List[str]:
-        """
-        Convert grouped blocks into list[str].
-        If chunk==True: split long blocks into overlapping char-based chunks.
-        """
-        batches: List[str] = []
-
-        def _normalize_block(block: Dict[str, Any]) -> str:
-            parts = []
-            if block.get("title"):
-                parts.append(block["title"])
-            if block.get("page") is not None:
-                parts.append(f"[Page {block['page']}]")
-            parts.append("\n".join(block.get("content", [])))
-            return "\n".join([p for p in parts if p]).strip()
-
-        for block in blocks:
-            text = _normalize_block(block)
-            if not text:
-                continue
-
-            if not chunk or len(text) <= self.chunk_size:
-                batches.append(text)
-                continue
-
-            # chunk large block into overlapping slices
-            start = 0
-            size = self.chunk_size
-            overlap = min(self.chunk_overlap, size - 1)
-            while start < len(text):
-                end = start + size
-                chunk_text = text[start:end].strip()
-                if chunk_text:
-                    batches.append(chunk_text)
-                if end >= len(text):
-                    break
-                start = end - overlap
-
-        self.text_batches = batches
-        return batches
-
-    # -------------------------
-    # Public extract method (pipeline)
-    # -------------------------
-    def extract(self, *, strategy: Optional[str] = None, chunk: bool = True) -> List[str]:
-        """
-        Run the full pipeline:
-         1) read_file()
-         2) extract elements (strategy auto-detected for pdf)
-         3) group by titles/pages/delimiters
-         4) build text batches (with chunking/overlap)
-
-        Parameters
-        ----------
-        strategy: Optional[str]
-            Force partition strategy (e.g., "hi_res", "fast", "ocr_only"). If None, auto choose.
-        chunk: bool
-            Whether to chunk long blocks.
-        """
-        # 1. read
-        self._read_file()
-
-        # 2. extract elements (choose strategy if not provided)
-        elements = self._extract_elements(strategy=strategy)
-
-        # 3. group elements
-        blocks = self._group_elements(elements)
-
-        # 4. build batches
-        batches = self._build_text_batches(blocks, chunk=chunk)
-
-        return batches
+    @staticmethod
+    def _is_effectively_empty(elements) -> bool:
+        if not elements:
+            return True
+        for el in elements:
+            if getattr(el, "text", "").strip():
+                return False
+        return True

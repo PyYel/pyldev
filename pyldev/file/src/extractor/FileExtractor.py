@@ -2,11 +2,12 @@
 
 from abc import ABC, abstractmethod
 from file import File
+from pyldev import _config_logger
 
 class FileExtractor(File):
 
-    def __init__(self, logs_name: str) -> None:
-        super().__init__(logs_name=logs_name)
+    def __init__(self) -> None:
+        super().__init__()
 
 
     @abstractmethod
