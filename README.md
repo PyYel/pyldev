@@ -1,4 +1,4 @@
-# PyYel-DevOps
+# PyYel Dev Ops
 
 The PyYel Development Operations extension. This repository regroups tools to simplify and speed up Python application back and front development process.
 
