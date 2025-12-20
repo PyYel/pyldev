@@ -24,7 +24,11 @@ all = ["pyldev[wiki,streamlit,file]"]
 wiki = ["mkdocs", "mkdocs-material"]
 streamlit = ["streamlit"]
 file = [
-    "unstructured[csv,doc,docx,epub,image,md,odt,org,pdf,ppt,pptx,rtf,rst,tsv,xlsx]", 
+    "unstructured[csv,doc,docx,epub,md,odt,org,ppt,pptx,rtf,rst,tsv,xlsx]", 
+    "pdfminer.six",
+    "pypdf",
+    "pdf2image",
+    "pillow",
     "pytesseract",
 ]
 

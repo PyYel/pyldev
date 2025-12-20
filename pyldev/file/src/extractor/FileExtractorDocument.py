@@ -1,244 +1,300 @@
-from __future__ import annotations
-from typing import Optional, List, Dict, Any, Iterable
-from io import BytesIO
-import os
-import shutil
+"""
+Document extraction class supporting multiple file formats with page-based chunking.
+"""
+from typing import List, Dict, Any, Optional, Union
+from pathlib import Path
 from collections import defaultdict
-
-# unstructured
-from unstructured.partition.pdf import partition_pdf
-from unstructured.partition.text import partition_text
-from unstructured.chunking.basic import chunk_elements
-from unstructured.documents.elements import Image as ImageElement
-
-from pdf2image import convert_from_path
-from PIL import Image
 import pytesseract
+from pdf2image import convert_from_path
+from unstructured.partition.text import partition_text
+from unstructured.partition.docx import partition_docx
+from unstructured.partition.pptx import partition_pptx
+from unstructured.chunking.basic import chunk_elements
+from unstructured.documents.elements import Element
 
-# Base class import (assume present)
 from .FileExtractor import FileExtractor
-
-
 
 class FileExtractorDocument(FileExtractor):
     """
-    Document extractor that:
-      - reads bytes/path
-      - selects parsing strategy (hi_res / fast / ocr_only) based on system capabilities
-      - extracts elements via unstructured.partition
-      - groups elements by page/title/delimiters
-      - builds text batches ready for RAG ingestion (with optional chunking)
+    Extracts content from various document formats with page-based chunking.
+    
+    Supported formats:
+    - PDF (with OCR via Tesseract)
+    - DOCX (Microsoft Word)
+    - PPTX (Microsoft PowerPoint)
+    - DOC (via conversion, if available)
     """
-
+    
+    # Supported file extensions mapped to extraction methods
+    SUPPORTED_FORMATS = {
+        '.pdf': '_extract_pdf_ocr',
+        '.docx': '_extract_docx',
+        '.pptx': '_extract_pptx',
+        '.doc': '_extract_doc',
+    }
+    
     def __init__(
         self,
-        file_path: Optional[str] = None,
-        file_bytes: Optional[BytesIO] = None,
-        prefer_hi_res: bool = True,
-        default_strategy: str = "fast",  # fallback strategy
-        chunk_size: int = 2000,          # char-based chunk size for batching
-        chunk_overlap: int = 200         # char overlap between chunks
-    ) -> None:
+        chunk_max_char: int = 1000,
+        chunk_overlap: int = 100,
+        ocr_lang: str = "eng",
+        ocr_dpi: int = 300,
+        group_by_page: bool = True,
+    ):
         """
+        Initialize the document extractor.
+        
+        Parameters
+        ----------
+        chunk_max_char
+            Maximum characters per chunk
+        chunk_overlap: 
+            Character overlap between chunks
+        ocr_lang: 
+            Tesseract language code (e.g., 'eng', 'fra', 'eng+fra')
+        ocr_dpi:
+            DPI for PDF to image conversion
+        group_by_page:
+            If True, merge all chunks per page into single text
         """
-        super().__init__()
-
-        self.file_path = file_path
-        self.chunk_max_char = 1000
+        self.chunk_max_char = chunk_max_char
         self.chunk_overlap = chunk_overlap
-        self.ocr_fallback = True
-        self.ocr_lang = "eng"
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
-    def extract(self, force_ocr: bool = False) -> List[Dict[str, Any]]:
-        elements = self._extract_with_fallback(self.file_path, force_ocr=force_ocr)
-        if not elements:
-            return []
-
-        # Group elements by page
-        page_map: Dict[int, list] = {}
-        for el in elements:
-            page = getattr(el.metadata, "page_number", None) #or el.metadata.get("page_number")
-            if page is None:
-                continue
-            page_map.setdefault(page, []).append(el)
-
-        chunks_dicts: List[Dict[str, Any]] = []
-
-        # Chunk per page (guarantees duplication across pages if needed)
-        for page_number, page_elements in sorted(page_map.items()):
-            page_chunks = chunk_elements(
-                page_elements,
-                max_characters=self.chunk_max_char,
-                overlap=self.chunk_overlap,
+        self.ocr_lang = ocr_lang
+        self.ocr_dpi = ocr_dpi
+        self.group_by_page = group_by_page
+    
+    def extract(self, file_path: str) -> List[Dict[str, Any]]:
+        """
+        Extract content from a document file with page-based chunking.
+        
+        Parameters
+        ----------
+            file_path: Path to the document file
+            
+        Returns:
+            List of dictionaries containing:
+                - type: Element type (Title, Text, Page, etc.)
+                - text: Extracted text content
+                - metadata: Dict with page_number and other metadata
+                
+        Raises:
+            ValueError: If file format is not supported
+            FileNotFoundError: If file does not exist
+        """
+        path = Path(file_path)
+        
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        extension = path.suffix.lower()
+        if extension not in self.SUPPORTED_FORMATS:
+            raise ValueError(
+                f"Unsupported file format: {extension}. "
+                f"Supported formats: {', '.join(self.SUPPORTED_FORMATS.keys())}"
             )
+        
 
-            for c in page_chunks:
-                text = getattr(c, "text", "").strip()
-                if not text:
-                    continue
-
-                chunks_dicts.append(
-                    {
-                        "type": getattr(c, "category", "Text"),
-                        "text": text,
-                        "metadata": {
-                            "page_number": page_number,
-                        },
-                    }
-                )
-        chunks_dicts = self._group_chunks_by_page(chunks=chunks_dicts)
-        return chunks_dicts
-
-
-    def _group_chunks_by_page(self,
+        chunks = []
+        if file_path.endswith(".pdf"):
+            chunks = self._extract_pdf_ocr(file_path=file_path)
+        
+        return self._group_chunks_by_page(chunks=chunks)
+    
+    
+    def _group_chunks_by_page(
+        self,
         chunks: List[Dict[str, Any]],
         separator: str = "\n\n",
     ) -> List[Dict[str, Any]]:
         """
+        Group all chunks belonging to the same page into a single chunk.
+        
+        Args:
+            chunks: List of chunk dictionaries
+            separator: Separator to use when joining chunk texts
+            
+        Returns:
+            List of grouped chunks (one per page)
         """
-
         pages = defaultdict(list)
-
         for chunk in chunks:
             page = chunk.get("metadata", {}).get("page_number")
             if page is None:
                 continue
             pages[page].append(chunk["text"])
-
+        
         grouped = []
         for page_number in sorted(pages):
-            grouped.append(
-                {
-                    "type": "Page",
-                    "text": separator.join(pages[page_number]).strip(),
-                    "metadata": {"page_number": page_number},
-                }
-            )
-
+            grouped.append({
+                "text": separator.join(pages[page_number]).strip(),
+                "metadata": {"page_number": page_number},
+            })
+        
         return grouped
-    # ------------------------------------------------------------------
-    # Extraction orchestration
-    # ------------------------------------------------------------------
-
-    def _extract_with_fallback(self, file_path: str, force_ocr: bool = False):
+    
+    
+    def _extract_pdf_ocr(self, file_path: str) -> List[dict[str, Any]]:
+        """
+        Extract text from PDF using OCR (Tesseract).
         
-        # Extract tex and images
-        if not force_ocr:
-            elements = self._extract_unstructured_native(file_path)
-        else: 
-            elements = []
-        
-        # Image only OCR
-        if elements and self.ocr_fallback:
-            elements = self._ocr_image_elements(elements)
-
-        # Full document OCR for scanned docs, ...
-        if (self.ocr_fallback and self._is_effectively_empty(elements)) or force_ocr:
-            elements = self._extract_pdf_ocr(file_path)
-            print(elements)
-
-        return elements
-
-    # ------------------------------------------------------------------
-    # Native PDF extraction (no OCR)
-    # ------------------------------------------------------------------
-
-    def _extract_unstructured_native(self, file_path: str):
+        Parameters
+        ----------
+            file_path: Path to PDF file
+            
+        Returns:
+            List of Element objects with page metadata
+        """
         try:
-            return partition_pdf(
-                filename=file_path,
-                strategy="fast",
-                languages=["en"],
-                infer_table_structure=True,
-                extract_images=True,
-                extract_image_block_types=["Image"],
-                include_page_breaks=False,
-                ocr_strategy="never",
+            images = convert_from_path(
+                file_path, 
+                dpi=self.ocr_dpi,
             )
-        except Exception:
-            return []
-
-    # ------------------------------------------------------------------
-    # OCR only image elements
-    # ------------------------------------------------------------------
-
-    def _ocr_image_elements(self, elements):
-        processed = []
-
-        for el in elements:
-            if isinstance(el, ImageElement):
-                image_path = getattr(el.metadata, "image_path", None) #or el.metadata.get("page_number")
-                page_number = getattr(el.metadata, "page_number", None) #or el.metadata.get("page_number")
-
-                if not image_path:
-                    continue
-
-                try:
-                    img = Image.open(image_path)
-                    text = pytesseract.image_to_string(
-                        img, lang=self.ocr_lang
-                    ).strip()
-                except Exception:
-                    continue
-
-                if text:
-                    processed.extend(
-                        partition_text(
-                            text=text,
-                            metadata={
-                                "page_number": page_number,
-                                "source": "image_ocr",
-                            },
-                        )
-                    )
-            else:
-                processed.append(el)
-
-        return processed
-
-    # ------------------------------------------------------------------
-    # Full-page OCR fallback (last resort)
-    # ------------------------------------------------------------------
-
-    def _extract_pdf_ocr(self, file_path: str):
-        try:
-            images = convert_from_path(file_path, dpi=300)
         except Exception as e:
-            print(e)
+            print(f"Error converting PDF to images: {e}")
             return []
-        print(len(images))
-        elements = []
-
+        
+        elements: List[dict[str, Any]] = []
         for page_num, img in enumerate(images, start=1):
-            text = pytesseract.image_to_string(
-                img, lang=self.ocr_lang
-            ).strip()
+            try:
+                text = str(pytesseract.image_to_string(
+                    img, 
+                    lang=self.ocr_lang
+                )).strip()
+                
+                if not text:
+                    continue
+                
+                element = {
+                    "text": text,
+                    "metadata": {
+                        "page_number": page_num, 
+                        "source": "ocr",
+                        "ocr_lang": self.ocr_lang,
+                    }
+                }
+                elements.append(element) 
 
-            if not text:
+            except Exception as e:
+                print(f"Error processing page {page_num}: {e}")
                 continue
-
-            elements.extend(
-                partition_text(
-                    text=text,
-                    metadata={"page_number": page_num, "source": "page_ocr"},
-                )
-            )
-
+        
         return elements
+    
+    def _extract_docx(self, file_path: str) -> List[Element]:
+        """
+        Extract text from DOCX file.
+        
+        Parameters
+        ----------
+            file_path: Path to DOCX file
+            
+        Returns:
+            List of Element objects with page metadata
+        """
+        try:
+            elements = partition_docx(
+                filename=file_path,
+                include_page_breaks=True,
+            )
+            
+            # Add page numbers based on page breaks
+            page_number = 1
+            for el in elements:
+                # Check if element is a page break
+                if hasattr(el, 'category') and el.category == "PageBreak":
+                    page_number += 1
+                    continue
+                
+                # Set page number in metadata
+                if not hasattr(el.metadata, 'page_number') or el.metadata.page_number is None:
+                    el.metadata.page_number = page_number
+            
+            # Filter out page break elements
+            elements = [el for el in elements if getattr(el, 'category', None) != "PageBreak"]
+            
+            return elements
+            
+        except Exception as e:
+            print(f"Error extracting DOCX: {e}")
+            return []
+    
+    def _extract_pptx(self, file_path: str) -> List[Element]:
+        """
+        Extract text from PPTX file (each slide is a page).
+        
+        Parameters
+        ----------
+            file_path: Path to PPTX file
+            
+        Returns:
+            List of Element objects with slide numbers as page metadata
+        """
+        try:
+            elements = partition_pptx(
+                filename=file_path,
+                include_page_breaks=True,
+            )
+            
+            # Track slide numbers
+            slide_number = 1
+            for el in elements:
+                # Page breaks indicate new slides in PPTX
+                if hasattr(el, 'category') and el.category == "PageBreak":
+                    slide_number += 1
+                    continue
+                
+                # Set slide number as page number
+                if not hasattr(el.metadata, 'page_number') or el.metadata.page_number is None:
+                    el.metadata.page_number = slide_number
+            
+            # Filter out page break elements
+            elements = [el for el in elements if getattr(el, 'category', None) != "PageBreak"]
+            
+            return elements
+            
+        except Exception as e:
+            print(f"Error extracting PPTX: {e}")
+            return []
+    
+    def _extract_doc(self, file_path: str) -> List[Element]:
+        """
+        Extract text from DOC file (legacy Word format).
+        
+        Note: This requires conversion to DOCX first, which may need
+        additional tools like LibreOffice or antiword.
+        
+        Parameters
+        ----------
+            file_path: Path to DOC file
+            
+        Returns:
+            List of Element objects with page metadata
+        """
+        try:
+            # Try using unstructured's auto partition which handles DOC
+            from unstructured.partition.auto import partition
+            
+            elements = partition(
+                filename=file_path,
+                include_page_breaks=True,
+            )
+            
+            # Process page numbers similar to DOCX
+            page_number = 1
+            for el in elements:
+                if hasattr(el, 'category') and el.category == "PageBreak":
+                    page_number += 1
+                    continue
+                
+                if not hasattr(el.metadata, 'page_number') or el.metadata.page_number is None:
+                    el.metadata.page_number = page_number
+            
+            elements = [el for el in elements if getattr(el, 'category', None) != "PageBreak"]
+            
+            return elements
+            
+        except Exception as e:
+            print(f"Error extracting DOC: {e}")
+            print("Note: DOC format may require additional dependencies or conversion tools.")
+            return []
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _is_effectively_empty(elements) -> bool:
-        if not elements:
-            return True
-        for el in elements:
-            if getattr(el, "text", "").strip():
-                return False
-        return True
