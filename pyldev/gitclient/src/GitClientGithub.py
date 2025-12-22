@@ -10,22 +10,30 @@ import io
 
 from .GitClient import GitClient
 
+
 class GitClientGithub(GitClient):
     """
     Github client helper for interacting with Github repositories
     """
-    def __init__(self,
-                 git_repository: str,
-                 git_api_url: str = "https://api.github.com",
-                 git_token: Optional[str] = None,
-                 tmp_dir: Optional[str] = None):
+
+    def __init__(
+        self,
+        git_repository: str,
+        git_api_url: str = "https://api.github.com",
+        git_token: Optional[str] = None,
+        tmp_dir: Optional[str] = None,
+    ):
         """
         Github client helper
         """
-        super().__init__(git_api_url=git_api_url, git_token=git_token, git_repository=git_repository, tmp_dir=tmp_dir)
+        super().__init__(
+            git_api_url=git_api_url,
+            git_token=git_token,
+            git_repository=git_repository,
+            tmp_dir=tmp_dir,
+        )
 
         return None
-        
 
     def fetch_repository_contents(self, path="") -> list[dict[str, str]]:
         """Fetch contents of a directory in the repository"""
@@ -34,16 +42,17 @@ class GitClientGithub(GitClient):
 
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            print(f"GitClientGithub >> Error fetching repository contents: {response.status_code}")
+            print(
+                f"GitClientGithub >> Error fetching repository contents: {response.status_code}"
+            )
             print(response.text)
             return []
 
         return response.json()
 
-
     def download_file(self, file_info):
         """Download a single file from GitHub"""
-        
+
         file_path = os.path.join(self.TMP_DIR, file_info["path"])
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
@@ -55,7 +64,6 @@ class GitClientGithub(GitClient):
             f.write(response.content)
 
         return file_path
-
 
     def download_directory(self, path: str = "", endswith: str = ""):
         """
@@ -81,7 +89,6 @@ class GitClientGithub(GitClient):
                 downloaded_files.extend(subdir_files)
 
         return downloaded_files
-
 
     def download_repository(self, endswith: str = "", branch: str = "main"):
         """
@@ -114,7 +121,9 @@ class GitClientGithub(GitClient):
         if os.path.exists(final_repo_dir):
             shutil.rmtree(final_repo_dir)
 
-        print(f"GitClientGithub >> Downloading repository {self.GIT_REPOSITORY} (branch: {branch})...")
+        print(
+            f"GitClientGithub >> Downloading repository {self.GIT_REPOSITORY} (branch: {branch})..."
+        )
         headers = {}
         if self.GIT_TOKEN:
             headers["Authorization"] = f"token {self.GIT_TOKEN}"
@@ -132,16 +141,24 @@ class GitClientGithub(GitClient):
 
             # The ZIP extraction creates a subdirectory with a generated name
             # Find that directory and rename it
-            subdirs = [d for d in os.listdir(tmp_extract_dir) if os.path.isdir(os.path.join(tmp_extract_dir, d))]
+            subdirs = [
+                d
+                for d in os.listdir(tmp_extract_dir)
+                if os.path.isdir(os.path.join(tmp_extract_dir, d))
+            ]
             if not subdirs:
-                print("GitClientGithub >> Failed to download the repository from Github.")
+                print(
+                    "GitClientGithub >> Failed to download the repository from Github."
+                )
                 return []
 
             source_dir = os.path.join(tmp_extract_dir, subdirs[0])
             # Rename by moving the directory to the final location
             shutil.move(source_dir, final_repo_dir)
 
-            print(f"GitClientGithub >> Repository downloaded, extracted, and renamed to {repo_name}.")
+            print(
+                f"GitClientGithub >> Repository downloaded, extracted, and renamed to {repo_name}."
+            )
             all_files = []
             matching_files = []
             for root, _, files in os.walk(final_repo_dir):
@@ -154,7 +171,9 @@ class GitClientGithub(GitClient):
 
             # Remove non-matching files
             files_to_remove = set(all_files) - set(matching_files)
-            for file_path in tqdm(files_to_remove, desc="GitClientGithub >> Removing non-matching files"):
+            for file_path in tqdm(
+                files_to_remove, desc="GitClientGithub >> Removing non-matching files"
+            ):
                 try:
                     os.remove(file_path)
                 except OSError as e:
@@ -173,12 +192,16 @@ class GitClientGithub(GitClient):
             # Clean up temporary extraction directory
             shutil.rmtree(tmp_extract_dir, ignore_errors=True)
 
-            print(f"GitClientGithub >> Removed {len(files_to_remove)} files, kept {len(matching_files)} files.")
+            print(
+                f"GitClientGithub >> Removed {len(files_to_remove)} files, kept {len(matching_files)} files."
+            )
 
             return matching_files
 
         except requests.RequestException as e:
-            print(f"GitClientGithub >> Error downloading repository (branch: {branch}): {e}")
+            print(
+                f"GitClientGithub >> Error downloading repository (branch: {branch}): {e}"
+            )
             # Clean up temporary directory in case of error
             shutil.rmtree(tmp_extract_dir, ignore_errors=True)
             return []

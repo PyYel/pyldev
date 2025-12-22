@@ -1,5 +1,5 @@
 import os, sys
-from tqdm import tqdm 
+from tqdm import tqdm
 import json
 import shutil
 
@@ -22,44 +22,53 @@ for dir in [os.path.join(output_dir, dir) for dir in os.listdir(output_dir)]:
     os.removedirs(dir)
 
 files = [
-    os.path.join(os.path.dirname(__file__), "files", file) 
-    for file in os.listdir(os.path.join(os.path.dirname(__file__), "files")) 
+    os.path.join(os.path.dirname(__file__), "files", file)
+    for file in os.listdir(os.path.join(os.path.dirname(__file__), "files"))
     if not file.endswith(".gitignore")
-] # test files in /files folder
+]  # test files in /files folder
 
 for file in tqdm(files):
 
     try:
 
-        if any([file.endswith(extension) for extension in ["docx", "doc", "pdf", "txt", "md"]]):
+        if any(
+            [
+                file.endswith(extension)
+                for extension in ["docx", "doc", "pdf", "txt", "md"]
+            ]
+        ):
 
             extractor = FileExtractorDocument()
             txt_chunks = extractor.extract(file_path=file)
             extractor.file_path = file
-            
+
             os.makedirs(os.path.join(output_dir, os.path.basename(file)))
             for idx, txt_chunk in enumerate(txt_chunks):
                 extractor._save_chunks(
-                    output_path=os.path.join(output_dir, os.path.basename(file), f"{idx+1}.txt"),
+                    output_path=os.path.join(
+                        output_dir, os.path.basename(file), f"{idx+1}.txt"
+                    ),
                     text_chunks=txt_chunk["text"],
-                    format="txt"
-                    )
+                    format="txt",
+                )
 
         if any([file.endswith(extension) for extension in ["pptx", ".odp"]]):
 
             extractor = FileExtractorSlideshow()
             txt_chunks = extractor.extract(file_path=file)
             extractor.file_path = file
-            
+
             os.makedirs(os.path.join(output_dir, os.path.basename(file)))
             for idx, txt_chunk in enumerate(txt_chunks):
                 extractor._save_chunks(
-                    output_path=os.path.join(output_dir, os.path.basename(file), f"{idx+1}.txt"),
+                    output_path=os.path.join(
+                        output_dir, os.path.basename(file), f"{idx+1}.txt"
+                    ),
                     text_chunks=txt_chunk["text"],
-                    format="txt"
-                    )
+                    format="txt",
+                )
 
             # sys.exit()
 
     except Exception as e:
-        print(e)    
+        print(e)

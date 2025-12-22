@@ -1,4 +1,3 @@
-
 import os, sys
 
 LOGGER_DIR_PATH = os.path.dirname(os.path.dirname(__file__))

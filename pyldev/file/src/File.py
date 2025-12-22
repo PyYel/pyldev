@@ -1,4 +1,3 @@
-
 import shutil
 from typing import Union, Optional, List, Dict
 from io import BytesIO
@@ -11,6 +10,7 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 
 from pyldev import _config_logger
+
 
 class File(ABC):
 
@@ -25,7 +25,6 @@ class File(ABC):
             logs_name="File",
             logs_output=["console"],
         )
-
 
     def _read_file(self) -> BytesIO:
         """
@@ -46,41 +45,37 @@ class File(ABC):
 
         return self.file_bytes
 
-    def _save_chunks(self, 
-        output_path: str, 
-        text_chunks: list[str],
-        format: str = "txt") -> str:
+    def _save_chunks(
+        self, output_path: str, text_chunks: list[str], format: str = "txt"
+    ) -> str:
         """
         Save batches to disk. format="txt" writes a plain text file with blank-line separators.
         """
 
-        if isinstance(text_chunks, str): text_chunks = [text_chunks]
-        if self.file_path: name = os.path.basename(self.file_path)
-        elif self.file_bytes: name = self.file_bytes.name
+        if isinstance(text_chunks, str):
+            text_chunks = [text_chunks]
+        if self.file_path:
+            name = os.path.basename(self.file_path)
+        elif self.file_bytes:
+            name = self.file_bytes.name
 
         if format == "txt":
             with open(output_path, "w", encoding="utf-8") as fh:
                 for b in text_chunks:
                     fh.write(b + "\n\n")
             return output_path
-        
+
         elif format == "json":
             json.dumps()
-            
 
         raise ValueError(f"Unsupported format: {format}")
-    
-    # Utilities
-    def _has_program(self, name: str) -> bool:
-        """Return True if executable is on PATH (used for poppler/tesseract)."""
-        return shutil.which(name) is not None
-    
 
-
-    def _hash_content(self, content: str, prefixes: List[str], algo: str = "md5") -> str:
+    def _hash_content(
+        self, content: str, prefixes: List[str], algo: str = "md5"
+    ) -> str:
         """
         Hashes a document content into a unique id of format <prefixes>-<hashed_content>.
-        Useful to automatically overwrite a stored document when a document with the same 
+        Useful to automatically overwrite a stored document when a document with the same
         timestamp and content is written into Elasticsearch or SQL.
 
         Parameters
@@ -122,23 +117,31 @@ class File(ABC):
 
         return f"{'-'.join(prefixes)}-{digest}"
 
-    def _config_logger(self, 
-                       logs_name: str, 
-                       logs_dir: Optional[str] = None, 
-                       logs_level: str = os.getenv("LOGS_LEVEL", "INFO"),
-                       logs_output: list[str] = ["console", "file"]):
+    def _config_logger(
+        self,
+        logs_name: str,
+        logs_dir: Optional[str] = None,
+        logs_level: str = os.getenv("LOGS_LEVEL", "INFO"),
+        logs_output: list[str] = ["console", "file"],
+    ):
         """
         Will configure logging accordingly to the plateform the program is running on. This
         is the default behaviour. See ``custom_config()`` to override the parameters.
         """
 
-        if logs_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:  logs_level="INFO"
-        if logs_dir is None: logs_dir = os.path.join(os.getcwd(), "logs", str(datetime.now().strftime("%Y-%m-%d")))
+        if logs_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+            logs_level = "INFO"
+        if logs_dir is None:
+            logs_dir = os.path.join(
+                os.getcwd(), "logs", str(datetime.now().strftime("%Y-%m-%d"))
+            )
         os.makedirs(logs_dir, exist_ok=True)
 
         self.logger = logging.getLogger(logs_name)
         self.logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
 
         # If a logger already exists, this prevents duplication of the logger handlers
         if self.logger.hasHandlers():
@@ -156,7 +159,11 @@ class File(ABC):
                 self.logger.info("Logging handler configured for console output.")
 
             if "file" in logs_output:
-                file_handler = logging.FileHandler(os.path.join(logs_dir, f"{datetime.now().strftime('%H-%M-%S')}-app.log"))
+                file_handler = logging.FileHandler(
+                    os.path.join(
+                        logs_dir, f"{datetime.now().strftime('%H-%M-%S')}-app.log"
+                    )
+                )
                 file_handler.setLevel(logging._nameToLevel[logs_level])
                 file_handler.setFormatter(formatter)
                 self.logger.addHandler(file_handler)

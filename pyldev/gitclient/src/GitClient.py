@@ -8,15 +8,18 @@ import time
 from typing import Optional, Union
 
 
-class GitClient():
+class GitClient:
     """
     Client base class
     """
-    def __init__(self,
-                 git_api_url: str,
-                 git_repository: str,
-                 git_token: Optional[str] = None,
-                 tmp_dir: Optional[str] = None):
+
+    def __init__(
+        self,
+        git_api_url: str,
+        git_repository: str,
+        git_token: Optional[str] = None,
+        tmp_dir: Optional[str] = None,
+    ):
 
         self.GIT_API_URL = git_api_url
         self.GIT_TOKEN = git_token

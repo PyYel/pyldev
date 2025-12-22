@@ -1,14 +1,13 @@
-
 from typing import Literal, Tuple, Union, Optional, List, Annotated
 from pydantic import BaseModel, Field
 
 __all__ = [
-    "FileElement", # type hinting 
+    "FileElement",  # type hinting
     "TextElement",
     "ImageElement",
     "TableElement",
-
 ]
+
 
 class ImageMetadata(BaseModel):
     """
@@ -19,6 +18,7 @@ class ImageMetadata(BaseModel):
     image_format: Optional[str]
     image_dims: Optional[Tuple[int, int]]
 
+
 class AudioMetadata(BaseModel):
     """
     Metadata for audio extracts.
@@ -27,6 +27,7 @@ class AudioMetadata(BaseModel):
     transcription_lang: str
     media_format: str
     sampling_frequency: int
+
 
 class VideoMetadata(BaseModel):
     """
@@ -37,6 +38,7 @@ class VideoMetadata(BaseModel):
     media_format: str
     video_dims: Tuple[int, int]
 
+
 class TextMetadata(BaseModel):
     """
     Metadata for native text elements extracted from document sources.
@@ -46,6 +48,7 @@ class TextMetadata(BaseModel):
     ocr_lang: Optional[str]
     ocr_dpi: Optional[int]
 
+
 class TableMetadata(BaseModel):
     """
     Metadata for table elements extracted from native document sources.
@@ -53,6 +56,7 @@ class TableMetadata(BaseModel):
 
     columns: Optional[List[str]]
     bbox: Optional[Tuple[float, float, float, float]]
+
 
 class FileMetadata(BaseModel):
     file_name: Optional[str]
@@ -81,7 +85,7 @@ class Element(BaseModel):
         - ``'ocr'``: content extracted using OCR
         - ``'llm'``: content extracted and/or transformed using language models
     index: int
-        A marker of the position of the element relative to the file elements order. 
+        A marker of the position of the element relative to the file elements order.
         Index is widely impacted by the file type (a timestamp does not work the same as a slide number)
     metadata: Dict
         A subclass of type-specific fields
@@ -100,10 +104,12 @@ class Element(BaseModel):
     def build(cls, file_name, *args, **kwargs):
         raise NotImplementedError
 
+
 class TextElement(Element):
     """
     Text Element
     """
+
     metadata: TextMetadata
     type: Literal["text"] = "text"
 
@@ -115,10 +121,9 @@ class TextElement(Element):
         source: Literal["native", "ocr", "llm"],
         index: int,
         bbox: Optional[tuple[float, float, float, float]] = None,
-        ocr_lang: Optional[str] = None, 
-        ocr_dpi: Optional[int] = None, 
-        **kwargs
-
+        ocr_lang: Optional[str] = None,
+        ocr_dpi: Optional[int] = None,
+        **kwargs,
     ) -> "TextElement":
         return cls(
             content=content,
@@ -129,19 +134,17 @@ class TextElement(Element):
                 file_name=kwargs.get("file_name"),
                 file_format=kwargs.get("file_format"),
                 file_author=kwargs.get("file_author"),
-                file_date=kwargs.get("file_date")
+                file_date=kwargs.get("file_date"),
             ),
-            metadata=TextMetadata(
-                bbox=bbox,
-                ocr_lang=ocr_lang,
-                ocr_dpi=ocr_dpi
-            ),
+            metadata=TextMetadata(bbox=bbox, ocr_lang=ocr_lang, ocr_dpi=ocr_dpi),
         )
+
 
 class TableElement(Element):
     """
     Text Element
     """
+
     metadata: TableMetadata
     type: Literal["table"] = "table"
 
@@ -153,8 +156,8 @@ class TableElement(Element):
         source: Literal["native", "ocr", "llm"],
         index: int,
         bbox: Optional[tuple[float, float, float, float]] = None,
-        columns: Optional[List[str]] = None, 
-        **kwargs
+        columns: Optional[List[str]] = None,
+        **kwargs,
     ) -> "TableElement":
         return cls(
             content=content,
@@ -165,12 +168,9 @@ class TableElement(Element):
                 file_name=kwargs.get("file_name"),
                 file_format=kwargs.get("file_format"),
                 file_author=kwargs.get("file_author"),
-                file_date=kwargs.get("file_date")
+                file_date=kwargs.get("file_date"),
             ),
-            metadata=TableMetadata(
-                columns=columns,
-                bbox=bbox
-            ),
+            metadata=TableMetadata(columns=columns, bbox=bbox),
         )
 
 
@@ -178,6 +178,7 @@ class ImageElement(Element):
     """
     Text Element
     """
+
     metadata: ImageMetadata
     type: Literal["image"] = "image"
 
@@ -188,10 +189,10 @@ class ImageElement(Element):
         content: str,
         index: int,
         source: Literal["ocr"],
-        ocr_lang: Optional[str] = None, 
+        ocr_lang: Optional[str] = None,
         image_format: Optional[str] = None,
         image_dims: Optional[Tuple[int, int]] = None,
-        **kwargs
+        **kwargs,
     ) -> "ImageElement":
         return cls(
             content=content,
@@ -202,7 +203,7 @@ class ImageElement(Element):
                 file_name=kwargs.get("file_name"),
                 file_format=kwargs.get("file_format"),
                 file_author=kwargs.get("file_author"),
-                file_date=kwargs.get("file_date")
+                file_date=kwargs.get("file_date"),
             ),
             metadata=ImageMetadata(
                 ocr_lang=ocr_lang,
@@ -210,6 +211,7 @@ class ImageElement(Element):
                 image_dims=image_dims,
             ),
         )
+
 
 FileElement = Annotated[
     Union[

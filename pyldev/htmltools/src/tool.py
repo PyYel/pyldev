@@ -1,4 +1,3 @@
-
 import sys, os
 
 
@@ -12,7 +11,9 @@ def generate_homepage(input_dir: str, output_path: str = "home.html"):
         return None
 
     # Get all subdirectories (objects)
-    objects = [d for d in os.listdir(input_dir) if os.path.isdir(os.path.join(input_dir, d))]
+    objects = [
+        d for d in os.listdir(input_dir) if os.path.isdir(os.path.join(input_dir, d))
+    ]
     objects.sort()  # Sort alphabetically
 
     # Generate HTML content
@@ -103,7 +104,7 @@ def generate_homepage(input_dir: str, output_path: str = "home.html"):
     </html>
     """
 
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         f.write(html_content)
 
     return None

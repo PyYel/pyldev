@@ -1,4 +1,3 @@
-
 import os, sys
 
 
@@ -9,4 +8,7 @@ if __name__ == "__main__":
 from htmltools import generate_homepage
 
 if __name__ == "__main__":
-    generate_homepage(input_dir=os.path.dirname(__file__), output_path=os.path.join(os.path.dirname(__file__), "home.html"))
+    generate_homepage(
+        input_dir=os.path.dirname(__file__),
+        output_path=os.path.join(os.path.dirname(__file__), "home.html"),
+    )

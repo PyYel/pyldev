@@ -15,12 +15,8 @@ def test(el: FileElement):
     elif el.type == "text":
         print(el.metadata.bbox)
 
-el = TextElement.build(content="test", source="native", index=1, bbox=(1,1,1,1))
+
+el = TextElement.build(content="test", source="native", index=1, bbox=(1, 1, 1, 1))
 test(el=el)
-el = ImageElement.build(content="test", source="ocr", index=1, image_dims=(1,1))
+el = ImageElement.build(content="test", source="ocr", index=1, image_dims=(1, 1))
 test(el=el)
-
-
-ell: FileElement
-
-ell.metadata.ocr_lang

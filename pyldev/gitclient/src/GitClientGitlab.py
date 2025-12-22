@@ -9,22 +9,30 @@ import zipfile
 
 from .GitClient import GitClient
 
+
 class GitClientGitlab(GitClient):
     """
     GitLab client helper for interacting with GitLab repositories
     """
-    def __init__(self,
-                 git_repository: str,
-                 git_api_url: str = "https://gitlab.com/api/v4",
-                 git_token: Optional[str] = None,
-                 tmp_dir: Optional[str] = None):
+
+    def __init__(
+        self,
+        git_repository: str,
+        git_api_url: str = "https://gitlab.com/api/v4",
+        git_token: Optional[str] = None,
+        tmp_dir: Optional[str] = None,
+    ):
         """
         GitLab client helper initialization
         """
-        super().__init__(git_api_url=git_api_url, git_token=git_token, git_repository=git_repository, tmp_dir=tmp_dir)
+        super().__init__(
+            git_api_url=git_api_url,
+            git_token=git_token,
+            git_repository=git_repository,
+            tmp_dir=tmp_dir,
+        )
 
         return None
-
 
     def fetch_repository_contents(self, path="") -> list[dict[str, str]]:
         """
@@ -39,8 +47,8 @@ class GitClientGitlab(GitClient):
         headers = {"PRIVATE-TOKEN": self.GIT_TOKEN} if self.GIT_TOKEN else {}
 
         # URL encode the repository path and the file/directory path
-        encoded_repo = quote(self.GIT_REPOSITORY, safe='')
-        encoded_path = quote(path, safe='')
+        encoded_repo = quote(self.GIT_REPOSITORY, safe="")
+        encoded_path = quote(path, safe="")
 
         # GitLab API endpoint for repository tree
         url = f"{self.GIT_API_URL}/projects/{encoded_repo}/repository/tree"
@@ -51,7 +59,9 @@ class GitClientGitlab(GitClient):
         response = requests.get(url, headers=headers, params=params, verify=False)
 
         if response.status_code != 200:
-            print(f"GitClientGitlab >> Error fetching repository contents: {response.status_code}")
+            print(
+                f"GitClientGitlab >> Error fetching repository contents: {response.status_code}"
+            )
             print(response.text)
             return []
 
@@ -63,22 +73,21 @@ class GitClientGitlab(GitClient):
             # Get additional file info for files (not directories)
             if item["type"] == "blob":
                 file_info = self._get_file_info(item["path"])
-                transformed_contents.append({
-                    "name": item["name"],
-                    "path": item["path"],
-                    "type": "file" if item["type"] == "blob" else "dir",
-                    "download_url": file_info.get("download_url", ""),
-                    "size": file_info.get("size", 0)
-                })
+                transformed_contents.append(
+                    {
+                        "name": item["name"],
+                        "path": item["path"],
+                        "type": "file" if item["type"] == "blob" else "dir",
+                        "download_url": file_info.get("download_url", ""),
+                        "size": file_info.get("size", 0),
+                    }
+                )
             else:
-                transformed_contents.append({
-                    "name": item["name"],
-                    "path": item["path"],
-                    "type": "dir"
-                })
+                transformed_contents.append(
+                    {"name": item["name"], "path": item["path"], "type": "dir"}
+                )
 
         return transformed_contents
-
 
     def _get_file_info(self, file_path):
         """
@@ -93,8 +102,8 @@ class GitClientGitlab(GitClient):
         headers = {"PRIVATE-TOKEN": self.GIT_TOKEN} if self.GIT_TOKEN else {}
 
         # URL encode the repository path and the file path
-        encoded_repo = quote(self.GIT_REPOSITORY, safe='')
-        encoded_file_path = quote(file_path, safe='')
+        encoded_repo = quote(self.GIT_REPOSITORY, safe="")
+        encoded_file_path = quote(file_path, safe="")
 
         # GitLab API endpoint for file content
         url = f"{self.GIT_API_URL}/projects/{encoded_repo}/repository/files/{encoded_file_path}"
@@ -103,7 +112,9 @@ class GitClientGitlab(GitClient):
         response = requests.get(url, headers=headers, params=params)
 
         if response.status_code != 200:
-            print(f"GitClientGitlab >> Error fetching file info: {response.status_code}")
+            print(
+                f"GitClientGitlab >> Error fetching file info: {response.status_code}"
+            )
             return {}
 
         file_info = response.json()
@@ -115,9 +126,8 @@ class GitClientGitlab(GitClient):
             "download_url": raw_url,
             "size": file_info.get("size", 0),
             "content": file_info.get("content", ""),
-            "encoding": file_info.get("encoding", "")
+            "encoding": file_info.get("encoding", ""),
         }
-
 
     def download_file(self, file_info):
         """
@@ -135,7 +145,9 @@ class GitClientGitlab(GitClient):
         headers = {"PRIVATE-TOKEN": self.GIT_TOKEN} if self.GIT_TOKEN else {}
 
         # Use the download_url from file_info
-        response = requests.get(file_info["download_url"], headers=headers, verify=False)
+        response = requests.get(
+            file_info["download_url"], headers=headers, verify=False
+        )
 
         if response.status_code != 200:
             print(f"GitClientGitlab >> Error downloading file: {response.status_code}")
@@ -145,7 +157,6 @@ class GitClientGitlab(GitClient):
             f.write(response.content)
 
         return file_path
-
 
     def download_directory(self, path="", endswith: str = ""):
         """
@@ -171,7 +182,6 @@ class GitClientGitlab(GitClient):
                 downloaded_files.extend(sub_files)
 
         return downloaded_files
-    
 
     def download_repository(self, endswith: str = "", branch: str = ""):
         """
@@ -202,14 +212,18 @@ class GitClientGitlab(GitClient):
         if os.path.exists(final_repo_dir):
             shutil.rmtree(final_repo_dir)
 
-        print(f"GitClientGitlab >> Downloading repository '{self.GIT_REPOSITORY}' (branch: '{branch}')...")
+        print(
+            f"GitClientGitlab >> Downloading repository '{self.GIT_REPOSITORY}' (branch: '{branch}')..."
+        )
         headers = {}
         if self.GIT_TOKEN:
             headers["PRIVATE-TOKEN"] = self.GIT_TOKEN
 
-        encoded_repo = self.GIT_REPOSITORY.replace('/', '%2F')
-        
-        metadata_url = f"{self.GIT_API_URL}/projects/{encoded_repo}/repository/branches/{branch}"
+        encoded_repo = self.GIT_REPOSITORY.replace("/", "%2F")
+
+        metadata_url = (
+            f"{self.GIT_API_URL}/projects/{encoded_repo}/repository/branches/{branch}"
+        )
         metadata = requests.get(metadata_url, headers=headers, verify=False).json()
         commit_sha = metadata["commit"]["id"]
 
@@ -223,16 +237,24 @@ class GitClientGitlab(GitClient):
 
             # The ZIP extraction creates a subdirectory with a generated name
             # Find that directory and rename it
-            subdirs = [d for d in os.listdir(tmp_extract_dir) if os.path.isdir(os.path.join(tmp_extract_dir, d))]
+            subdirs = [
+                d
+                for d in os.listdir(tmp_extract_dir)
+                if os.path.isdir(os.path.join(tmp_extract_dir, d))
+            ]
             if not subdirs:
-                print("GitClientGitlab >> Failed to download the repository from GitLab.")
+                print(
+                    "GitClientGitlab >> Failed to download the repository from GitLab."
+                )
                 return []
 
             source_dir = os.path.join(tmp_extract_dir, subdirs[0])
             # Rename by moving the directory to the final location
             shutil.move(source_dir, final_repo_dir)
 
-            print(f"GitClientGitlab >> Repository downloaded, extracted, and renamed to {repo_name}.")
+            print(
+                f"GitClientGitlab >> Repository downloaded, extracted, and renamed to {repo_name}."
+            )
             all_files = []
             matching_files = []
 
@@ -246,7 +268,9 @@ class GitClientGitlab(GitClient):
 
             # Remove non-matching files
             files_to_remove = set(all_files) - set(matching_files)
-            for file_path in tqdm(files_to_remove, desc="GitClientGitlab >> Removing non-matching files"):
+            for file_path in tqdm(
+                files_to_remove, desc="GitClientGitlab >> Removing non-matching files"
+            ):
                 try:
                     os.remove(file_path)
                 except OSError as e:
@@ -263,12 +287,16 @@ class GitClientGitlab(GitClient):
                         pass
 
             shutil.rmtree(tmp_extract_dir, ignore_errors=True)
-            print(f"GitClientGitlab >> Removed {len(files_to_remove)} files, kept {len(matching_files)} files.")
+            print(
+                f"GitClientGitlab >> Removed {len(files_to_remove)} files, kept {len(matching_files)} files."
+            )
 
             return matching_files
 
         except requests.RequestException as e:
-            print(f"GitClientGitlab >> Error downloading repository (branch: {branch}): {e}")
+            print(
+                f"GitClientGitlab >> Error downloading repository (branch: {branch}): {e}"
+            )
             # Clean up temporary directory in case of error
             shutil.rmtree(tmp_extract_dir, ignore_errors=True)
             return []
