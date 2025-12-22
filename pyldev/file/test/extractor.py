@@ -30,19 +30,36 @@ files = [
 for file in tqdm(files):
 
     try:
+
         if any([file.endswith(extension) for extension in ["docx", "doc", "pdf", "txt", "md"]]):
 
             extractor = FileExtractorDocument()
             txt_chunks = extractor.extract(file_path=file)
             extractor.file_path = file
-
+            
             os.makedirs(os.path.join(output_dir, os.path.basename(file)))
             for idx, txt_chunk in enumerate(txt_chunks):
                 extractor._save_chunks(
                     output_path=os.path.join(output_dir, os.path.basename(file), f"{idx+1}.txt"),
-                    text_chunks=[txt_chunk["text"] for txt_chunk in txt_chunks],
+                    text_chunks=txt_chunk["text"],
                     format="txt"
                     )
+
+        if any([file.endswith(extension) for extension in ["pptx", ".odp"]]):
+
+            extractor = FileExtractorSlideshow()
+            txt_chunks = extractor.extract(file_path=file)
+            extractor.file_path = file
+            
+            os.makedirs(os.path.join(output_dir, os.path.basename(file)))
+            for idx, txt_chunk in enumerate(txt_chunks):
+                extractor._save_chunks(
+                    output_path=os.path.join(output_dir, os.path.basename(file), f"{idx+1}.txt"),
+                    text_chunks=txt_chunk["text"],
+                    format="txt"
+                    )
+
+            # sys.exit()
 
     except Exception as e:
         print(e)    

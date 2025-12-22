@@ -13,15 +13,13 @@ class FileExtractorSlideshow(FileExtractor):
         file_bytes: Optional[BytesIO] = None
     ) -> None:
         """
-        Processes slideshow-like files:
-        - pptx, odp
+        Processes image-like files:
+        - Slideshow: pptx, odp
+        - Images: png, jpg
         """
         super().__init__()
 
-        
-    def _read_file(self, *args, **kwargs):
-        return super()._read_file(*args, **kwargs)
+    def extract(self, *args, **kwargs):
+        pass
     
-    def _save_file(self, *args, **kwargs):
-        return super()._save_file(*args, **kwargs)
     

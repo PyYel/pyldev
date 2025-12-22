@@ -54,10 +54,9 @@ class File(ABC):
         Save batches to disk. format="txt" writes a plain text file with blank-line separators.
         """
 
+        if isinstance(text_chunks, str): text_chunks = [text_chunks]
         if self.file_path: name = os.path.basename(self.file_path)
         elif self.file_bytes: name = self.file_bytes.name
-
-        # os.makedirs(self.file_path, exist_ok=True)
 
         if format == "txt":
             with open(output_path, "w", encoding="utf-8") as fh:
