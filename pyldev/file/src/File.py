@@ -26,6 +26,21 @@ class File(ABC):
             logs_output=["console"],
         )
 
+        self.SUPPORTED_FORMATS = {}
+
+    def _check_supported(self, extractor_type: str, file_path: str):
+        """
+        Checks if a file is supported using its extension and the ``SUPPORTED_FORMAT`` attribute.
+        """
+        ext = os.path.splitext(file_path)[-1]
+        if ext in self.SUPPORTED_FORMATS[extractor_type]:
+            return True
+        else:
+            self.logger.warning(
+                f"Extractor '{extractor_type}' does not support file '{ext}'."
+            )
+            return False
+
     def _read_file(self) -> BytesIO:
         """
         Populate self.file_bytes from self.file_path if needed.
@@ -45,30 +60,22 @@ class File(ABC):
 
         return self.file_bytes
 
-    def _save_chunks(
-        self, output_path: str, text_chunks: list[str], format: str = "txt"
-    ) -> str:
+    def _save_file(self, file_path: str) -> None:
         """
-        Save batches to disk. format="txt" writes a plain text file with blank-line separators.
+        Write self.file_bytes to disk.
         """
+        if not self.file_bytes:
+            raise ValueError("No file_bytes to save.")
 
-        if isinstance(text_chunks, str):
-            text_chunks = [text_chunks]
-        if self.file_path:
-            name = os.path.basename(self.file_path)
-        elif self.file_bytes:
-            name = self.file_bytes.name
+        if not os.path.exists(os.path.dirname(file_path)):
+            raise ValueError("Path is inconplete or can't be reached.")
 
-        if format == "txt":
-            with open(output_path, "w", encoding="utf-8") as fh:
-                for b in text_chunks:
-                    fh.write(b + "\n\n")
-            return output_path
-
-        elif format == "json":
-            json.dumps()
-
-        raise ValueError(f"Unsupported format: {format}")
+        try:
+            self.file_bytes.seek(0)
+            with open(file_path, "wb") as f:
+                f.write(self.file_bytes.read())
+        except Exception as e:
+            raise ValueError(f"Error writing file_path: {e}")
 
     def _hash_content(
         self, content: str, prefixes: List[str], algo: str = "md5"
@@ -116,57 +123,3 @@ class File(ABC):
             raise ValueError(f"Unsupported algo: {algo}")
 
         return f"{'-'.join(prefixes)}-{digest}"
-
-    def _config_logger(
-        self,
-        logs_name: str,
-        logs_dir: Optional[str] = None,
-        logs_level: str = os.getenv("LOGS_LEVEL", "INFO"),
-        logs_output: list[str] = ["console", "file"],
-    ):
-        """
-        Will configure logging accordingly to the plateform the program is running on. This
-        is the default behaviour. See ``custom_config()`` to override the parameters.
-        """
-
-        if logs_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-            logs_level = "INFO"
-        if logs_dir is None:
-            logs_dir = os.path.join(
-                os.getcwd(), "logs", str(datetime.now().strftime("%Y-%m-%d"))
-            )
-        os.makedirs(logs_dir, exist_ok=True)
-
-        self.logger = logging.getLogger(logs_name)
-        self.logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-
-        # If a logger already exists, this prevents duplication of the logger handlers
-        if self.logger.hasHandlers():
-            for handler in self.logger.handlers:
-                handler.close()
-
-        # Creates/recreates the handler(s)
-        if not self.logger.hasHandlers():
-
-            if "console" in logs_output:
-                console_handler = logging.StreamHandler()
-                console_handler.setLevel(logging._nameToLevel[logs_level])
-                console_handler.setFormatter(formatter)
-                self.logger.addHandler(console_handler)
-                self.logger.info("Logging handler configured for console output.")
-
-            if "file" in logs_output:
-                file_handler = logging.FileHandler(
-                    os.path.join(
-                        logs_dir, f"{datetime.now().strftime('%H-%M-%S')}-app.log"
-                    )
-                )
-                file_handler.setLevel(logging._nameToLevel[logs_level])
-                file_handler.setFormatter(formatter)
-                self.logger.addHandler(file_handler)
-                self.logger.info("Logging handler configured for file output.")
-
-        return None

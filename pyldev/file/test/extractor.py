@@ -13,6 +13,7 @@ from file import (
     FileExtractorSlideshow,
     FileExtractorSpreadsheet,
 )
+import pyldev
 
 output_dir = os.path.join(MAIN_DIR, "file", "test", "outputs")
 os.makedirs(output_dir, exist_ok=True)
@@ -39,15 +40,14 @@ for file in tqdm(files):
         ):
 
             extractor = FileExtractorDocument()
+            extractor.logger = pyldev._config_logger(logs_name="ExtractorTests", logs_output=["console", "file"])
             txt_chunks = extractor.extract(file_path=file)
             extractor.file_path = file
 
             os.makedirs(os.path.join(output_dir, os.path.basename(file)))
             for idx, txt_chunk in enumerate(txt_chunks):
                 extractor._save_chunks(
-                    output_path=os.path.join(
-                        output_dir, os.path.basename(file), f"{idx+1}.txt"
-                    ),
+                    output_path=output_dir,
                     text_chunks=txt_chunk["text"],
                     format="txt",
                 )
@@ -61,9 +61,7 @@ for file in tqdm(files):
             os.makedirs(os.path.join(output_dir, os.path.basename(file)))
             for idx, txt_chunk in enumerate(txt_chunks):
                 extractor._save_chunks(
-                    output_path=os.path.join(
-                        output_dir, os.path.basename(file), f"{idx+1}.txt"
-                    ),
+                    output_path=output_dir,
                     text_chunks=txt_chunk["text"],
                     format="txt",
                 )

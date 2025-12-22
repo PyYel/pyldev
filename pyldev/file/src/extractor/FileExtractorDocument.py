@@ -37,12 +37,7 @@ class FileExtractorDocument(FileExtractor):
     """
 
     # Supported file extensions mapped to extraction methods
-    SUPPORTED_FORMATS = {
-        ".pdf": "_extract_pdf_ocr",
-        ".docx": "_extract_docx",
-        ".pptx": "_extract_pptx",
-        ".doc": "_extract_doc",
-    }
+
 
     def __init__(
         self,
@@ -69,9 +64,7 @@ class FileExtractorDocument(FileExtractor):
             If True, merge all chunks per page into single text
         """
 
-        self.logger = _config_logger(
-            logs_name="FileExtractorDocument", logs_output=["console"]
-        )
+        self.logger = _config_logger(logs_name="FileExtractorDocument")
 
         self.chunk_max_char = chunk_max_char
         self.chunk_overlap = chunk_overlap
