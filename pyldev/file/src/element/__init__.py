@@ -58,6 +58,14 @@ class TableMetadata(BaseModel):
     bbox: Optional[Tuple[float, float, float, float]]
 
 
+class ChunkMetadata(BaseModel):
+    """
+    Metadata for chunk elements aggregated from different document sources.
+    """
+
+    ocr_lang: Optional[str]
+
+
 class FileMetadata(BaseModel):
     file_name: Optional[str]
     file_format: Optional[str]
@@ -209,6 +217,41 @@ class ImageElement(Element):
                 ocr_lang=ocr_lang,
                 image_format=image_format,
                 image_dims=image_dims,
+            ),
+        )
+
+
+class ChunkElement(Element):
+    """
+    Chunk Element
+    """
+
+    metadata: ChunkMetadata
+    type: Literal["chunk"] = "chunk"
+
+    @classmethod
+    def build(
+        cls,
+        *,
+        content: str,
+        index: int,
+        source: Literal["aggregated"],
+        ocr_lang: Optional[str] = None,
+        **kwargs,
+    ) -> "ChunkElement":
+        return cls(
+            content=content,
+            type="chunk",
+            source="aggregated",
+            index=index,
+            file=FileMetadata(
+                file_name=kwargs.get("file_name"),
+                file_format=kwargs.get("file_format"),
+                file_author=kwargs.get("file_author"),
+                file_date=kwargs.get("file_date"),
+            ),
+            metadata=ChunkMetadata(
+                ocr_lang=ocr_lang,
             ),
         )
 

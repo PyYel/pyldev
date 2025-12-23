@@ -48,7 +48,7 @@ def _config_logger(
         )
     else:
         logs_dir = os.path.join(logs_dir, str(datetime.now().strftime("%Y-%m-%d")))
-    
+
     if "file" in logs_output:
         _create_logs_dir(logs_dir=logs_dir)
 

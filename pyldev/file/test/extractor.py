@@ -40,33 +40,32 @@ for file in tqdm(files):
         ):
 
             extractor = FileExtractorDocument()
-            extractor.logger = pyldev._config_logger(logs_name="ExtractorTests", logs_output=["console", "file"])
-            txt_chunks = extractor.extract(file_path=file)
+            extractor.logger = pyldev._config_logger(
+                logs_name="ExtractorTests", logs_output=["console", "file"], logs_level="DEBUG"
+            )
+            elements = extractor.extract(file_path=file)
+            elements = extractor._group_elements(elements=elements)
             extractor.file_path = file
 
             os.makedirs(os.path.join(output_dir, os.path.basename(file)))
-            for idx, txt_chunk in enumerate(txt_chunks):
-                extractor._save_chunks(
-                    output_path=output_dir,
-                    text_chunks=txt_chunk["text"],
-                    format="txt",
-                )
+            extractor._save_chunks(
+                output_path=output_dir,
+                text_chunks=[element.content for element in elements],
+                format="txt",
+            )
 
         if any([file.endswith(extension) for extension in ["pptx", ".odp"]]):
 
             extractor = FileExtractorSlideshow()
-            txt_chunks = extractor.extract(file_path=file)
+            elements = extractor.extract(file_path=file)
             extractor.file_path = file
 
             os.makedirs(os.path.join(output_dir, os.path.basename(file)))
-            for idx, txt_chunk in enumerate(txt_chunks):
-                extractor._save_chunks(
-                    output_path=output_dir,
-                    text_chunks=txt_chunk["text"],
-                    format="txt",
-                )
-
-            # sys.exit()
+            extractor._save_chunks(
+                output_path=output_dir,
+                text_chunks=[element.content for element in elements],
+                format="txt",
+            )
 
     except Exception as e:
         print(e)

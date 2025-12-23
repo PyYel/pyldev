@@ -4,9 +4,12 @@ from pyldev import _config_logger
 from PIL.Image import Image
 import io
 from typing import Dict, List, Any, Optional, Union, Literal
-import pytesseract
 import json
 import sys, os
+from collections import defaultdict
+
+
+from ..element import FileElement, TextElement
 
 
 class FileExtractor(File):
@@ -37,15 +40,18 @@ class FileExtractor(File):
 
         if isinstance(text_chunks, str):
             text_chunks = [text_chunks]
-        # if self.file_path:
-        #     name = os.path.basename(self.file_path)
-        # elif self.file_bytes:
-        #     name = self.file_bytes.name
+        if self.file_path:
+            name = os.path.basename(self.file_path)
+        elif self.file_bytes:
+            name = self.file_bytes.name
+        else:
+            self.logger.warning("Missing file name when saving chunks.")
+            name = "_default"
 
         if format == "txt":
             for idx, text in enumerate(text_chunks):
                 with open(
-                    os.path.join(output_path, f"{idx}.txt"), "w", encoding="utf-8"
+                    os.path.join(output_path, name, f"{idx}.txt"), "w", encoding="utf-8"
                 ) as f:
                     f.write(text + "\n\n")
             return output_path
@@ -53,36 +59,66 @@ class FileExtractor(File):
         elif format == "json":
             for idx, text in enumerate(text_chunks):
                 with open(
-                    os.path.join(output_path, f"{idx}.txt"), "w", encoding="utf-8"
+                    os.path.join(output_path, name, f"{idx}.txt"), "w", encoding="utf-8"
                 ) as f:
                     json.dump(text, f)
 
         raise ValueError(f"Unsupported format: {format}")
 
-    def _ocr_image(
-        self, image: Image, page_num: int, language: str = "eng"
-    ) -> Optional[Dict[str, Any]]:
+    def _group_elements(
+        self,
+        elements: List[FileElement],
+        index_type: Optional[Literal["page", "slide", "timestamp"]] = "page",
+    ) -> List[FileElement]:
         """
-        Apply OCR to entire page (for scanned content).
+        Takes a list of FileElements and returns a list of TextElements, where same
+        index FileElement content have been merged together.
+
+        Parameters
+        ----------
+        elements: List[FileElement]
+            List of any ``FileElement`` to merge by index.
+        index_type: Optional[str]
+            A optional marker to add at the beginning of the grouped content to highlight its index source.
+
+        Returns
+        -------
+        regruped_elements: List[TextElement]
+            List of merged elements (one ``TextElement`` per index)
+
+        Examples
+        --------
+        >>> grouped_elements = file_extractor._group_elements([
+                TextElement(content='hello', index=1)
+                ImageElement(content='An other page', index=2)
+                ImageElement(content='world', index=1)
+            ], index_type='slide')
+        >>> print(grouped_elements)
+        >>> [{content: 'SLIDE 1:\\n\\nhello world', index=1}, {content: 'SLIDE 2:\\n\\nAn other page', index=2}]
         """
-        try:
 
-            text = str(pytesseract.image_to_string(image, lang=language)).strip()
+        # Sorts based on FileElement.index value
+        grouped_elements = defaultdict(list)
+        for element in elements:
+            index = element.index
+            if index is None:
+                continue
+            grouped_elements[index].append(element)
 
-            if not text:
-                return {}
+        # Merges into same TextElement.content the grouped FileElement.content
+        regrouped_elements = []
+        for index, elements in enumerate(grouped_elements.values()):
+            content = (
+                f"{index_type.upper()} {index}:\n\n" if index_type is not None else ""
+            )
+            for element in elements:
+                content += element.content
+            regrouped_elements.append(
+                TextElement.build(
+                    content=content,
+                    source="native",
+                    index=index,
+                )
+            )
 
-            return {
-                "text": text,
-                "type": "text",
-                "metadata": {
-                    "page_number": page_num,
-                    "source": "ocr_full_page",
-                    "ocr_lang": language,
-                    "ocr_dpi": image.info["dpi"],
-                },
-            }
-
-        except Exception as e:
-            print(f"Error OCR'ing page {page_num}: {e}")
-            return {}
+        return regrouped_elements

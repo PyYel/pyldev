@@ -4,25 +4,22 @@ Document extraction class supporting multiple file formats with page-based chunk
 
 from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
-from collections import defaultdict
 import pytesseract
 import fitz
 import pymupdf
 from fitz.table import find_tables
 from pdf2image import convert_from_path
-from unstructured.partition.text import partition_text
+import os, sys
 
-# from unstructured.partition.pdf import partition_pdf, partition_pdf_or_image
 from unstructured.partition.docx import partition_docx
-from unstructured.chunking.basic import chunk_elements
-from unstructured.documents.elements import Element
+
 import PIL
-from PIL.Image import Image
+from PIL import Image
 import io
 
 from pyldev import _config_logger
 from .FileExtractor import FileExtractor
-from file import *
+from ..element import *
 
 
 class FileExtractorDocument(FileExtractor):
@@ -37,7 +34,6 @@ class FileExtractorDocument(FileExtractor):
     """
 
     # Supported file extensions mapped to extraction methods
-
 
     def __init__(
         self,
@@ -63,6 +59,7 @@ class FileExtractorDocument(FileExtractor):
         group_by_page:
             If True, merge all chunks per page into single text
         """
+        super().__init__()
 
         self.logger = _config_logger(logs_name="FileExtractorDocument")
 
@@ -72,7 +69,7 @@ class FileExtractorDocument(FileExtractor):
         self.ocr_dpi = ocr_dpi
         self.group_by_page = group_by_page
 
-    def extract(self, file_path: str) -> List[Dict[str, Any]]:
+    def extract(self, file_path: str) -> List[FileElement]:
         """
         Extract content from a document file with page-based chunking.
 
@@ -91,63 +88,34 @@ class FileExtractorDocument(FileExtractor):
             FileNotFoundError: If file does not exist
         """
 
-        def _group_chunks_by_page(
-            chunks: List[Dict[str, Any]],
-            separator: str = "\n\n",
-        ) -> List[Dict[str, Any]]:
-            """
-            Group all chunks belonging to the same page into a single chunk.
-
-            Args:
-                chunks: List of chunk dictionaries
-                separator: Separator to use when joining chunk texts
-
-            Returns:
-                List of grouped chunks (one per page)
-            """
-            pages = defaultdict(list)
-            for chunk in chunks:
-                page = chunk.get("metadata", {}).get("page_number")
-                if page is None:
-                    continue
-                pages[page].append(chunk["text"])
-
-            grouped = []
-            for page_number in sorted(pages):
-                grouped.append(
-                    {
-                        "text": separator.join(pages[page_number]).strip(),
-                        "metadata": {"page_number": page_number},
-                    }
-                )
-
-            return grouped
-
         path = Path(file_path)
 
         if not path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        extension = path.suffix.lower()
-        if extension not in self.SUPPORTED_FORMATS:
-            raise ValueError(
-                f"Unsupported file format: {extension}. "
-                f"Supported formats: {', '.join(self.SUPPORTED_FORMATS.keys())}"
-            )
-
-        chunks = []
+        self._check_supported(extractor_type="document", file_path=file_path)
+        elements = []
         if file_path.endswith(".pdf"):
-            chunks = self._extract_pdf(file_path=file_path)
+            self.logger.info(
+                f"Extracting from '{os.path.basename(file_path)}' using PDF methods."
+            )
+            elements = self._extract_pdf(file_path=file_path)
         elif file_path.endswith(".docx"):
-            chunks = self._extract_docx(file_path=file_path)
+            self.logger.info(
+                f"Extracting from '{os.path.basename(file_path)}' using DOCX methods."
+            )
+            elements = self._extract_docx(file_path=file_path)
         if file_path.endswith(".odt"):
-            chunks = self._extract_doc(file_path=file_path)
+            self.logger.info(
+                f"Extracting from '{os.path.basename(file_path)}' using DOC methods."
+            )
+            elements = self._extract_doc(file_path=file_path)
 
-        return _group_chunks_by_page(chunks=chunks)
+        return elements
 
     def _extract_pdf(
         self, file_path: str, text_threshold: int = 20
-    ) -> List[dict[str, Any]]:
+    ) -> List[FileElement]:
         """
         Extract text from PDF using OCR (Tesseract).
 
@@ -159,48 +127,14 @@ class FileExtractorDocument(FileExtractor):
             List of Element objects with page metadata
         """
 
-        def _extract_page(
-            self, page: fitz.Page, page_num: int, file_path: str
-        ) -> List[Dict[str, Any]]:
-            """
-            Extract content from a single page using hybrid approach.
-            """
-            elements = []
-
-            # Step 1: Try native text extraction
-            native_text = page.get_text("text").strip()
-            has_native_text = len(native_text) >= text_threshold
-
-            if has_native_text:
-                # Extract native text content with better structure
-                text_elements = _extract_text(page, page_num)
-                elements.extend(text_elements)
-
-                table_elements = _extract_tables(page, page_num)
-                elements.extend(table_elements)
-
-            else:
-                # Page is likely scanned - use OCR on entire page
-                print(f"  Page {page_num}: Scanned content detected, applying OCR...")
-                ocr_element = self._ocr_page(page, page_num)
-                if ocr_element:
-                    elements.append(ocr_element)
-
-            # Step 2: Extract and OCR embedded images (even on pages with native text)
-            image_elements = self._extract_and_ocr_images(page, page_num, file_path)
-            elements.extend(image_elements)
-
-            return elements
-
-        def _extract_text(page: fitz.Page, page_num: int) -> List[Dict[str, Any]]:
+        def _extract_text(page: fitz.Page, page_num: int) -> List[TextElement]:
             """
             Extract native text with paragraph-level structure.
             """
-            elements = []
 
             # Use "blocks" to get text with layout information
             blocks = page.get_text("blocks")
-
+            elements: List[TextElement] = []
             for block_num, block in enumerate(blocks):
                 # block format: (x0, y0, x1, y1, "text", block_no, block_type)
                 if len(block) < 5:
@@ -216,27 +150,24 @@ class FileExtractorDocument(FileExtractor):
                 if not text:
                     continue
 
-                element = {
-                    "text": text,
-                    "type": "text",
-                    "metadata": {
-                        "page_number": page_num,
-                        "source": "native",
-                        "block_number": block_num,
-                        "bbox": (x0, y0, x1, y1),
-                    },
-                }
+                self.logger.debug(f"Found native text from page {page_num}.")
+                element = TextElement.build(
+                    content=self._sanitize_text(text),
+                    source="native",
+                    index=page_num,
+                    bbox=(float(x0), float(y0), float(x1), float(y1)),
+                )
                 elements.append(element)
 
             return elements
 
-        def _extract_tables(page: fitz.Page, page_num: int) -> List[Dict[str, Any]]:
+        def _extract_tables(page: fitz.Page, page_num: int) -> List[TableElement]:
             """
             Attempt to extract tables from page using PyMuPDF's table detection.
             Note: This is basic table detection. For advanced needs, consider using
             libraries like camelot-py or tabula-py.
             """
-            elements = []
+            elements: List[TableElement] = []
 
             try:
                 # PyMuPDF 1.23.0+ has find_tables()
@@ -249,42 +180,37 @@ class FileExtractorDocument(FileExtractor):
                     # Extract table as pandas DataFrame or raw data
                     try:
                         df = table.to_pandas()
-                        table_text = df.to_string(index=False)
+                        text = df.to_string(index=False)
 
-                        element = {
-                            "text": table_text,
-                            "type": "table",
-                            "metadata": {
-                                "page_number": page_num,
-                                "source": "native",
-                                "table_number": table_num,
-                                "rows": len(df),
-                                "columns": len(df.columns),
-                                "bbox": table.bbox,
-                            },
-                        }
+                        self.logger.debug(f"Found native table from page {page_num}.")
+                        element = TableElement.build(
+                            content=self._sanitize_text(text),
+                            source="native",
+                            index=page_num,
+                            columns=df.columns.to_list(),
+                            bbox=table.bbox,
+                        )
                         elements.append(element)
+
                     except Exception as e:
-                        print(
-                            f"  Warning: Could not extract table {table_num} on page {page_num}: {e}"
+                        self.logger.warning(
+                            f"Could not extract table {table_num} on page {page_num}: {e}"
                         )
 
             except AttributeError:
                 # find_tables() not available in older PyMuPDF versions
                 return []
             except Exception as e:
-                print(f"  Warning: Table extraction failed on page {page_num}: {e}")
+                self.logger.error(f"Table extraction failed on page {page_num}: {e}")
                 return []
 
             return elements
 
-        def _extract_images(
-            page: fitz.Page, page_num: int, file_path: str
-        ) -> List[Dict[str, Any]]:
+        def _extract_images(page: fitz.Page, page_num: int) -> List[ImageElement]:
             """
             Extract embedded images and apply OCR to them.
             """
-            elements = []
+            elements: List[ImageElement] = []
 
             try:
                 image_list = page.get_images(full=True)
@@ -298,34 +224,35 @@ class FileExtractorDocument(FileExtractor):
                         image_bytes = base_image["image"]
 
                         # Convert to PIL Image
-                        imgage = PIL.Image.open(io.BytesIO(image_bytes))
+                        image = Image.open(io.BytesIO(image_bytes))
 
                         # Apply OCR
                         text = pytesseract.image_to_string(
-                            imgage, lang=self.ocr_lang
+                            image, lang=self.ocr_lang
                         ).strip()
 
-                        if text:
-                            element = {
-                                "text": text,
-                                "type": "text",
-                                "metadata": {
-                                    "page_number": page_num,
-                                    "source": "ocr_full_page",
-                                    "ocr_lang": self.ocr_lang,
-                                    "ocr_dpi": image.info["dpi"],
-                                    "image_format": base_image["ext"],
-                                    "image_size": (
-                                        base_image["width"],
-                                        base_image["height"],
-                                    ),
-                                },
-                            }
-                            elements.append(element)
+                        if text is None:
+                            continue
+
+                        self.logger.debug(
+                            f"Performed OCR on embedded image from page {page_num}."
+                        )
+                        element = ImageElement.build(
+                            content=text,
+                            index=page_num,
+                            source="ocr",
+                            ocr_lang=self.ocr_lang,
+                            image_format=base_image["ext"],
+                            image_size=(
+                                base_image["width"],
+                                base_image["height"],
+                            ),
+                        )
+                        elements.append(element)
 
                     except Exception as e:
-                        print(
-                            f"  Warning: Could not OCR image {img_index} on page {page_num}: {e}"
+                        self.logger.error(
+                            f"Could not OCR image {img_index} on page {page_num}: {e}"
                         )
                         continue
 
@@ -334,40 +261,93 @@ class FileExtractorDocument(FileExtractor):
 
             return elements
 
-        try:
-            images = convert_from_path(
-                file_path,
-                dpi=self.ocr_dpi,
-            )
-        except Exception as e:
-            print(f"Error converting PDF to images: {e}")
-            return []
+        def _extract_scan(page: fitz.Page, page_num: int) -> List[ImageElement]:
+            """
+            Extract embedded images and apply OCR to them.
+            """
+            elements: List[ImageElement] = []
 
-        elements: List[dict[str, Any]] = []
-        for page_num, img in enumerate(images, start=1):
             try:
-                text = str(pytesseract.image_to_string(img, lang=self.ocr_lang)).strip()
+                # Convert page to image
+                pix = page.get_pixmap(dpi=self.ocr_dpi)
+                img_data = pix.tobytes("png")
+                img = Image.open(io.BytesIO(img_data))
 
-                if not text:
-                    continue
+                # Apply OCR
+                text = pytesseract.image_to_string(img, lang=self.ocr_lang).strip()
 
-                element = {
-                    "text": text,
-                    "metadata": {
-                        "page_number": page_num,
-                        "source": "ocr",
-                        "ocr_lang": self.ocr_lang,
-                    },
-                }
+                if text is None:
+                    return []
+
+                self.logger.debug(f"Performed OCR on scanned page {page_num}.")
+                element = ImageElement.build(
+                    content=text,
+                    index=page_num,
+                    source="ocr",
+                    ocr_lang=self.ocr_lang,
+                    image_format=".pdf",
+                    image_size=(
+                        pix.width,
+                        pix.height,
+                    ),
+                )
                 elements.append(element)
+                return elements
 
             except Exception as e:
-                print(f"Error processing page {page_num}: {e}")
-                continue
+                self.logger.error(f"Could not OCR scanned page {page_num}: {e}")
+                return []
+
+        # =====================
+        # PDF EXTRACTION LOGIC
+        # =====================
+
+        if not os.path.exists(file_path):
+            self.logger.error(f"PDF not found: {file_path}")
+            return []
+
+        elements: List[FileElement] = []
+        try:
+            doc = fitz.open(file_path)
+
+            for page_num in range(len(doc)):
+
+                page = doc[page_num]
+
+                native_text = page.get_text("text").strip()
+                has_native_text = len(native_text) >= text_threshold
+
+                # Page has readable content
+                if has_native_text:
+                    self.logger.info(
+                        f"Extracting readable text from '{os.path.basename(file_path)}' page {page_num}."
+                    )
+                    text_elements = _extract_text(page, page_num)
+                    elements.extend(text_elements)
+
+                    table_elements = _extract_tables(page, page_num)
+                    elements.extend(table_elements)
+
+                    image_elements = _extract_images(page, page_num)
+                    elements.extend(image_elements)
+
+                # Page is likely scanned - use OCR on entire page
+                else:
+                    self.logger.info(
+                        f"Performing OCR scan from '{os.path.basename(file_path)}' page {page_num}."
+                    )
+                    ocr_element = _extract_scan(page, page_num)
+                    elements.extend(ocr_element)
+
+            doc.close()
+
+        except Exception as e:
+            self.logger.error(f"Error processing PDF {file_path}: {e}")
+            return []
 
         return elements
 
-    def _extract_docx(self, file_path: str) -> List[Element]:
+    def _extract_docx(self, file_path: str) -> List[FileElement]:
         """
         Extract text from DOCX file.
 
@@ -410,7 +390,7 @@ class FileExtractorDocument(FileExtractor):
             print(f"Error extracting DOCX: {e}")
             return []
 
-    def _extract_doc(self, file_path: str) -> List[Element]:
+    def _extract_doc(self, file_path: str) -> List[FileElement]:
         """
         Extract text from DOC file (legacy Word format).
 

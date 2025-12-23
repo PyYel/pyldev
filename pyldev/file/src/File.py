@@ -8,6 +8,7 @@ import uuid
 import logging
 from datetime import datetime
 from abc import ABC, abstractmethod
+import unicodedata
 
 from pyldev import _config_logger
 
@@ -40,6 +41,22 @@ class File(ABC):
                 f"Extractor '{extractor_type}' does not support file '{ext}'."
             )
             return False
+
+    def _sanitize_text(self, text: str) -> str:
+        # Remove BOM if present
+        text = text.lstrip("\ufeff")
+
+        # If null bytes exist, assume UTF-16BE pattern
+        if "\x00" in text:
+            try:
+                # Re-encode as latin1 to recover raw bytes,
+                # then decode as UTF-16
+                text = text.encode("latin1").decode("utf-16")
+            except UnicodeError:
+                # Fallback: strip null bytes
+                text = text.replace("\x00", "")
+
+        return unicodedata.normalize("NFC", text)
 
     def _read_file(self) -> BytesIO:
         """
