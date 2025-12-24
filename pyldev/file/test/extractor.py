@@ -15,8 +15,9 @@ from file import (
 )
 import pyldev
 
-os.environ["LOGS_LEVEL"] = "DEBUG"
-print(os.getenv("LOGS_LEVEL"))
+os.environ["LOGS_LEVEL"] = "INFO"
+# os.environ["LOGS_DIR"] = os.path.dirname(__file__)
+os.environ["LOGS_OUTPUT"] = "file, console"
 
 output_dir = os.path.join(MAIN_DIR, "file", "test", "outputs")
 os.makedirs(output_dir, exist_ok=True)
@@ -32,11 +33,11 @@ files = [
 ]  # test files in /files folder
 
 extractor_document = FileExtractorDocument()
-extractor_document.logger = pyldev._config_logger(
-    logs_name="ExtractorTests",
-    logs_output=["console", "file"],
-    # logs_level="DEBUG",
-)
+# extractor_document.logger = pyldev._config_logger(
+#     logs_name="ExtractorTests",
+#     logs_output=["console", "file"],
+#     # logs_level="DEBUG",
+# )
 
 extractor_slideshow = FileExtractorSlideshow()
 
@@ -48,7 +49,6 @@ for file in tqdm(files):
         elements = extractor_document._group_elements(elements=elements)
         extractor_document.file_path = file
 
-        os.makedirs(os.path.join(output_dir, os.path.basename(file)))
         extractor_document._save_elements(
             output_path=output_dir,
             elements=elements,
@@ -58,7 +58,6 @@ for file in tqdm(files):
         elements = extractor_slideshow.extract(file_path=file)
         extractor_slideshow.file_path = file
 
-        os.makedirs(os.path.join(output_dir, os.path.basename(file)))
         extractor_slideshow._save_elements(
             output_path=output_dir,
             elements=elements,
@@ -66,4 +65,4 @@ for file in tqdm(files):
         )
 
     except Exception as e:
-        print(e)
+        print(f"EXTRACTOR ERROR: {e}")

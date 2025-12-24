@@ -39,6 +39,7 @@ class FileExtractor(File):
         Save batches to disk. format="txt" writes a plain text file with blank-line separators.
         """
 
+
         if not isinstance(elements, List):
             elements = [elements]
 
@@ -51,6 +52,9 @@ class FileExtractor(File):
         else:
             self.logger.warning("Missing file name when saving elements.")
             name = "_default"
+
+        if elements != []:
+            os.makedirs(os.path.join(output_path, name))
 
         if format == "txt":
             for element in elements:
@@ -72,43 +76,6 @@ class FileExtractor(File):
                     json.dump(element.content + "\n\n", f)
 
         return None
-
-    def _save_chunks(
-        self,
-        output_path: str,
-        text_chunks: list[str],
-        format: Literal["txt", "json"] = "txt",
-    ) -> str:
-        """
-        Save batches to disk. format="txt" writes a plain text file with blank-line separators.
-        """
-
-        if isinstance(text_chunks, str):
-            text_chunks = [text_chunks]
-        if self.file_path:
-            name = os.path.basename(self.file_path)
-        elif self.file_bytes:
-            name = self.file_bytes.name
-        else:
-            self.logger.warning("Missing file name when saving chunks.")
-            name = "_default"
-
-        if format == "txt":
-            for idx, text in enumerate(text_chunks):
-                with open(
-                    os.path.join(output_path, name, f"{idx}.txt"), "w", encoding="utf-8"
-                ) as f:
-                    f.write(text + "\n\n")
-            return output_path
-
-        elif format == "json":
-            for idx, text in enumerate(text_chunks):
-                with open(
-                    os.path.join(output_path, name, f"{idx}.txt"), "w", encoding="utf-8"
-                ) as f:
-                    json.dump(text, f)
-
-        raise ValueError(f"Unsupported format: {format}")
 
     def _group_elements(
         self,

@@ -24,7 +24,7 @@ class File(ABC):
 
         self.logger = _config_logger(
             logs_name="File",
-            logs_output=["console"],
+            logs_output="console",
         )
 
         self.SUPPORTED_FORMATS = {}

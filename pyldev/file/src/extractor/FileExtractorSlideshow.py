@@ -18,4 +18,4 @@ class FileExtractorSlideshow(FileExtractor):
         super().__init__()
 
     def extract(self, *args, **kwargs):
-        pass
+        return []

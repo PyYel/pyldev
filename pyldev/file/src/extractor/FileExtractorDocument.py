@@ -9,16 +9,14 @@ import pytesseract
 import os
 import sys
 import io
-import zipfile
-from PIL import Image
 import pandas as pd
 import subprocess
 
 # PDF libraries - all open source
-from pdfplumber import open as plumber_open  # MIT License
+# from pdfplumber import open as plumber_open 
+import pdfplumber
 from pdfplumber.page import Page
-from pypdf import PdfReader
-import pypdfium2 as pdfium  # Apache 2.0 / BSD-3-Clause - Bin emebdded
+import pypdfium2 as pdfium 
 from pypdfium2 import PdfPage, PdfImage, PdfBitmap
 
 from pyldev import _config_logger
@@ -95,7 +93,8 @@ class FileExtractorDocument(FileExtractor):
             self.logger.error(f"File not found: {file_path}")
             return []
 
-        self._check_supported(extractor_type="document", file_path=file_path)
+        if not self._check_supported(extractor_type="document", file_path=file_path):
+            return []
 
         elements = []
         if file_path.endswith(".pdf"):
@@ -230,7 +229,7 @@ class FileExtractorDocument(FileExtractor):
 
             return elements
 
-        def _extract_images(page_num: int) -> List[ImageElement]:
+        def _extract_images(page: pdfium.PdfPage, page_num: int) -> List[ImageElement]:
             """
             Extract embedded images and applies OCR.
             """
@@ -239,51 +238,49 @@ class FileExtractorDocument(FileExtractor):
 
             try:
 
-                pdf = pdfium.PdfDocument(file_path)
-                page = pdf[page_num]
-
                 page_objects = page.get_objects()
 
-                for img_index, obj in enumerate(page_objects):
-                    if isinstance(obj, PdfImage):
-                        bitmap = obj.get_bitmap()
-                        pil_image = bitmap.to_pil()
+                for obj_index, obj in enumerate(page_objects):
+                    try:
+                        if isinstance(obj, PdfImage):
+                            bitmap = obj.get_bitmap()
+                            pil_image = bitmap.to_pil()
 
-                        text = pytesseract.image_to_string(
-                            pil_image, lang=self.ocr_lang
-                        ).strip()
+                            text = pytesseract.image_to_string(
+                                pil_image, lang=self.ocr_lang
+                            ).strip()
 
-                        if not text:
-                            continue
+                            if not text:
+                                continue
 
-                        self.logger.debug(
-                            f"Performed OCR on embedded image {img_index} from page {page_num}."
-                        )
+                            self.logger.debug(
+                                f"Performed OCR on embedded image object {obj_index} from page {page_num}."
+                            )
 
-                        element = ImageElement.build(
-                            content=self._sanitize_text(text),
-                            index=page_num,
-                            source="ocr",
-                            ocr_lang=self.ocr_lang,
-                            image_size=obj.get_px_size(),
-                        )
-                        elements.append(element)
+                            element = ImageElement.build(
+                                content=self._sanitize_text(text),
+                                index=page_num,
+                                source="ocr",
+                                ocr_lang=self.ocr_lang,
+                                image_size=obj.get_px_size(),
+                            )
+                            elements.append(element)
+                            
+                    except Exception as e:
+                        self.logger.warning(f"Image extraction failed on page {page_num} for object {obj_index}: {e}")
 
             except Exception as e:
-                self.logger.warning(f"Image extraction failed on page {page_num}: {e}")
+                self.logger.error(f"PDF loading page {page_num} failed before image extaction: {e}")
 
             return elements
 
-        def _extract_page(page_num: int) -> List[ImageElement]:
+        def _extract_page(page: pdfium.PdfPage, page_num: int) -> List[ImageElement]:
             """
             Convert PDF page to image and apply OCR.
             """
             elements: List[ImageElement] = []
 
             try:
-                pdf = pdfium.PdfDocument(file_path)
-
-                page = pdf.get_page(page_num)
 
                 # Render page to bitmap
                 # scale: 1.0 = 72 DPI, 2.0 = 144 DPI, 4.0 = 288 DPI
@@ -326,30 +323,42 @@ class FileExtractorDocument(FileExtractor):
         elements: List[FileElement] = []
 
         try:
+
+            # Open as bytes to prevent concurring opening conflicts
+            with open(file_path, "rb") as f:
+                pdf_bytes = f.read()
+
+            pdfium_pdf = pdfium.PdfDocument(file_path, autoclose=True)
+
             # Open with pdfplumber for better extraction
-            with plumber_open(file_path) as pdf:
-                for page_num, page in enumerate(pdf.pages, start=1):
+            with pdfplumber.open(io.BytesIO(pdf_bytes)) as plumber_pdf:
+                
+                # This gets pdf plumber page
+                for page_num, plumber_page in enumerate(plumber_pdf.pages, start=1):
+                    # This gets pdfium page
+                    pdfium_page = pdfium_pdf.get_page(page_num-1) # pdfplumber index starts at 1
+
                     # Check if page has native text
-                    native_text = page.extract_text()
+                    native_text = plumber_page.extract_text()
                     has_native_text = (
                         native_text and len(native_text.strip()) >= text_threshold
                     )
 
                     if has_native_text:
                         self.logger.info(
-                            f"Extracting readable text from '{os.path.basename(file_path)}' page {page_num}."
+                            f"Extracting content from '{os.path.basename(file_path)}' page {page_num}."
                         )
 
                         # Extract text with layout
-                        text_elements = _extract_text(page, page_num)
+                        text_elements = _extract_text(plumber_page, page_num)
                         elements.extend(text_elements)
 
                         # Extract tables
-                        table_elements = _extract_tables(page, page_num)
+                        table_elements = _extract_tables(plumber_page, page_num)
                         elements.extend(table_elements)
 
                         # Extract images (limited functionality)
-                        image_elements = _extract_images(page_num)
+                        image_elements = _extract_images(pdfium_page, page_num)
                         elements.extend(image_elements)
 
                     else:
@@ -357,9 +366,11 @@ class FileExtractorDocument(FileExtractor):
                         self.logger.info(
                             f"Performing OCR scan from '{os.path.basename(file_path)}' page {page_num}."
                         )
-                        ocr_elements = _extract_page(page_num)
+                        ocr_elements = _extract_page(pdfium_page, page_num)
                         elements.extend(ocr_elements)
-
+            
+            pdfium_pdf.close()
+                
         except Exception as e:
             self.logger.error(f"Error processing PDF {file_path}: {e}")
             return []
@@ -373,8 +384,8 @@ class FileExtractorDocument(FileExtractor):
         Returns the path to the generated PDF.
         """
 
-        input_path = os.path.abspath(os.path.dirname(file_path))
-        output_dir = os.path.abspath(os.path.dirname(file_path))
+        input_path = file_path
+        output_dir = os.path.join(os.path.dirname(file_path))
 
         os.makedirs(output_dir, exist_ok=True)
 
