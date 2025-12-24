@@ -28,44 +28,39 @@ files = [
     if not file.endswith(".gitignore")
 ]  # test files in /files folder
 
+extractor_document = FileExtractorDocument()
+extractor_document.logger = pyldev._config_logger(
+    logs_name="ExtractorTests",
+    logs_output=["console", "file"],
+    logs_level="DEBUG",
+)
+
+extractor_slideshow = FileExtractorSlideshow()
+
 for file in tqdm(files):
 
     try:
 
-        if any(
-            [
-                file.endswith(extension)
-                for extension in ["docx", "doc", "pdf", "txt", "md"]
-            ]
-        ):
+        elements = extractor_document.extract(file_path=file)
+        elements = extractor_document._group_elements(elements=elements)
+        extractor_document.file_path = file
 
-            extractor = FileExtractorDocument()
-            extractor.logger = pyldev._config_logger(
-                logs_name="ExtractorTests", logs_output=["console", "file"], logs_level="DEBUG"
-            )
-            elements = extractor.extract(file_path=file)
-            elements = extractor._group_elements(elements=elements)
-            extractor.file_path = file
+        os.makedirs(os.path.join(output_dir, os.path.basename(file)))
+        extractor_document._save_elements(
+            output_path=output_dir,
+            elements=elements,
+            format="txt",
+        )
 
-            os.makedirs(os.path.join(output_dir, os.path.basename(file)))
-            extractor._save_chunks(
-                output_path=output_dir,
-                text_chunks=[element.content for element in elements],
-                format="txt",
-            )
+        elements = extractor_slideshow.extract(file_path=file)
+        extractor_slideshow.file_path = file
 
-        if any([file.endswith(extension) for extension in ["pptx", ".odp"]]):
-
-            extractor = FileExtractorSlideshow()
-            elements = extractor.extract(file_path=file)
-            extractor.file_path = file
-
-            os.makedirs(os.path.join(output_dir, os.path.basename(file)))
-            extractor._save_chunks(
-                output_path=output_dir,
-                text_chunks=[element.content for element in elements],
-                format="txt",
-            )
+        os.makedirs(os.path.join(output_dir, os.path.basename(file)))
+        extractor_slideshow._save_elements(
+            output_path=output_dir,
+            elements=elements,
+            format="txt",
+        )
 
     except Exception as e:
         print(e)

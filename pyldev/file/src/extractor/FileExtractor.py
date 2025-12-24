@@ -18,7 +18,7 @@ class FileExtractor(File):
         super().__init__()
 
         self.SUPPORTED_FORMATS = {
-            "document": [".pdf", ".docx", ".doc"],
+            "document": [".pdf", ".docx", ".doc", ".md", ".txt"],
             "media": [".mp3", ".mp4"],
             "slideshow": [".pptx", ".otp"],
             "spreadsheet": [".xlsx", ".csv"],
@@ -27,6 +27,51 @@ class FileExtractor(File):
     @abstractmethod
     def extract(self, *args, **kwargs):
         raise NotImplementedError
+
+    def _save_elements(
+        self,
+        output_path: str,
+        elements: list[FileElement],
+        file_name: Optional[str] = None,
+        format: Literal["txt", "json"] = "txt",
+    ):
+        """
+        Save batches to disk. format="txt" writes a plain text file with blank-line separators.
+        """
+
+        if not isinstance(elements, List):
+            elements = [elements]
+
+        if file_name:
+            name = file_name
+        elif self.file_path:
+            name = os.path.basename(self.file_path)
+        elif self.file_bytes:
+            name = self.file_bytes.name
+        else:
+            self.logger.warning("Missing file name when saving elements.")
+            name = "_default"
+
+        if format == "txt":
+            for element in elements:
+                with open(
+                    os.path.join(output_path, name, f"{element.index}.txt"),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    f.write(element.content + "\n\n")
+            return output_path
+
+        elif format == "json":
+            for element in elements:
+                with open(
+                    os.path.join(output_path, name, f"{element.index}.txt"),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    json.dump(element.content + "\n\n", f)
+
+        return None
 
     def _save_chunks(
         self,

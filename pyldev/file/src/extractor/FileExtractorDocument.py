@@ -1,21 +1,25 @@
 """
 Document extraction class supporting multiple file formats with page-based chunking.
+Uses only open-source, commercially-friendly libraries.
 """
 
 from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
 import pytesseract
-import fitz
-import pymupdf
-from fitz.table import find_tables
-from pdf2image import convert_from_path
-import os, sys
-
-from unstructured.partition.docx import partition_docx
-
-import PIL
-from PIL import Image
+import os
+import sys
 import io
+import zipfile
+from PIL import Image
+import pandas as pd
+import subprocess
+
+# PDF libraries - all open source
+from pdfplumber import open as plumber_open  # MIT License
+from pdfplumber.page import Page
+from pypdf import PdfReader
+import pypdfium2 as pdfium  # Apache 2.0 / BSD-3-Clause - Bin emebdded
+from pypdfium2 import PdfPage, PdfImage, PdfBitmap
 
 from pyldev import _config_logger
 from .FileExtractor import FileExtractor
@@ -25,15 +29,18 @@ from ..element import *
 class FileExtractorDocument(FileExtractor):
     """
     Extracts content from various document formats with page-based chunking.
+    Uses only open-source, commercially-friendly libraries.
 
     Supported formats:
     - PDF (with OCR via Tesseract)
     - DOCX (Microsoft Word)
-    - PPTX (Microsoft PowerPoint)
-    - DOC (via conversion, if available)
-    """
+    - ODT (LibreOffice)
+    - DOC (via LibreOffice conversion)
 
-    # Supported file extensions mapped to extraction methods
+    System dependencies:
+    - tesseract-ocr: Required for OCR
+    - libreoffice: Optional, only for .doc conversion
+    """
 
     def __init__(
         self,
@@ -75,41 +82,43 @@ class FileExtractorDocument(FileExtractor):
 
         Parameters
         ----------
-            file_path: Path to the document file
+        file_path: str
+            Path to the document file
 
-        Returns:
-            List of dictionaries containing:
-                - type: Element type (Title, Text, Page, etc.)
-                - text: Extracted text content
-                - metadata: Dict with page_number and other metadata
-
-        Raises:
-            ValueError: If file format is not supported
-            FileNotFoundError: If file does not exist
+        Returns
+        -------
+        elements: List[FileElement]
+            List of ``FileElement``.
         """
 
-        path = Path(file_path)
-
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
+        if not os.path.exists(file_path):
+            self.logger.error(f"File not found: {file_path}")
+            return []
 
         self._check_supported(extractor_type="document", file_path=file_path)
+
         elements = []
         if file_path.endswith(".pdf"):
             self.logger.info(
                 f"Extracting from '{os.path.basename(file_path)}' using PDF methods."
             )
             elements = self._extract_pdf(file_path=file_path)
-        elif file_path.endswith(".docx"):
+        else:
             self.logger.info(
-                f"Extracting from '{os.path.basename(file_path)}' using DOCX methods."
+                f"Extracting from '{os.path.basename(file_path)}' using PDF methods."
             )
-            elements = self._extract_docx(file_path=file_path)
-        if file_path.endswith(".odt"):
-            self.logger.info(
-                f"Extracting from '{os.path.basename(file_path)}' using DOC methods."
-            )
-            elements = self._extract_doc(file_path=file_path)
+            elements = self._extract_other(file_path=file_path)
+
+        # elif file_path.endswith(".docx"):
+        #     self.logger.info(
+        #         f"Extracting from '{os.path.basename(file_path)}' using DOCX methods."
+        #     )
+        #     elements = self._extract_docx(file_path=file_path)
+        # elif file_path.endswith(".odt") or file_path.endswith(".doc"):
+        #     self.logger.info(
+        #         f"Extracting from '{os.path.basename(file_path)}' using DOC/ODT methods."
+        #     )
+        #     elements = self._extract_doc(file_path=file_path)
 
         return elements
 
@@ -117,78 +126,97 @@ class FileExtractorDocument(FileExtractor):
         self, file_path: str, text_threshold: int = 20
     ) -> List[FileElement]:
         """
-        Extract text from PDF using OCR (Tesseract).
+        Extract text from PDF.
 
         Parameters
         ----------
-            file_path: Path to PDF file
+        file_path: str
+            Path to PDF file.
+        text_threshold: int
+            Minimum characters to consider page as having native text.
 
-        Returns:
-            List of Element objects with page metadata
+        Returns
+        -------
+        elements: List[FileElement]
+            List of ``FileElement``.
         """
 
-        def _extract_text(page: fitz.Page, page_num: int) -> List[TextElement]:
+        def _extract_text(page: Page, page_num: int) -> List[TextElement]:
             """
-            Extract native text with paragraph-level structure.
+            Extract native text using pdfplumber with layout information.
             """
-
-            # Use "blocks" to get text with layout information
-            blocks = page.get_text("blocks")
             elements: List[TextElement] = []
-            for block_num, block in enumerate(blocks):
-                # block format: (x0, y0, x1, y1, "text", block_no, block_type)
-                if len(block) < 5:
-                    continue
 
-                x0, y0, x1, y1, text, block_no, block_type = block[:7]
+            try:
+                words = page.extract_words()
 
-                # block_type: 0 = text, 1 = image
-                if block_type != 0:
-                    continue
+                if not words:
+                    return elements
 
-                text = text.strip()
-                if not text:
-                    continue
+                # Group words into text blocks by proximity
+                lines = {}
+                for word in words:
+                    y = round(word["top"])  # Round to group nearby words
+                    if y not in lines:
+                        lines[y] = []
+                    lines[y].append(word)
 
-                self.logger.debug(f"Found native text from page {page_num}.")
-                element = TextElement.build(
-                    content=self._sanitize_text(text),
-                    source="native",
-                    index=page_num,
-                    bbox=(float(x0), float(y0), float(x1), float(y1)),
-                )
-                elements.append(element)
+                # Sort lines by y-coordinate
+                for y in sorted(lines.keys()):
+                    line_words = sorted(lines[y], key=lambda w: w["x0"])
+                    text = " ".join([w["text"] for w in line_words]).strip()
+
+                    if not text:
+                        continue
+
+                    # Calculate bounding box for the line
+                    x0 = min(w["x0"] for w in line_words)
+                    y0 = min(w["top"] for w in line_words)
+                    x1 = max(w["x1"] for w in line_words)
+                    y1 = max(w["bottom"] for w in line_words)
+
+                    self.logger.debug(f"Found native text from page {page_num}.")
+                    element = TextElement.build(
+                        content=self._sanitize_text(text),
+                        source="native",
+                        index=page_num,
+                        bbox=(float(x0), float(y0), float(x1), float(y1)),
+                    )
+                    elements.append(element)
+
+            except Exception as e:
+                self.logger.warning(f"Error extracting text with pdfplumber: {e}")
 
             return elements
 
-        def _extract_tables(page: fitz.Page, page_num: int) -> List[TableElement]:
+        def _extract_tables(page: Page, page_num: int) -> List[TableElement]:
             """
-            Attempt to extract tables from page using PyMuPDF's table detection.
-            Note: This is basic table detection. For advanced needs, consider using
-            libraries like camelot-py or tabula-py.
+            Extract tables using pdfplumber's table detection.
             """
             elements: List[TableElement] = []
 
             try:
-                # PyMuPDF 1.23.0+ has find_tables()
-                # tables = page.find_tables()
-                table_finder = fitz.table.find_tables(page=page)
-                if table_finder is None:
-                    return []
+                tables = page.extract_tables()
 
-                for table_num, table in enumerate(table_finder.tables):
-                    # Extract table as pandas DataFrame or raw data
+                if not tables:
+                    return elements
+
+                for table_num, table_data in enumerate(tables):
                     try:
-                        df = table.to_pandas()
+                        if not table_data or len(table_data) < 2:
+                            continue
+
+                        df = pd.DataFrame(table_data[1:], columns=table_data[0])
                         text = df.to_string(index=False)
 
                         self.logger.debug(f"Found native table from page {page_num}.")
+
                         element = TableElement.build(
                             content=self._sanitize_text(text),
                             source="native",
                             index=page_num,
-                            columns=df.columns.to_list(),
-                            bbox=table.bbox,
+                            columns=[str(col) for col in table_data[0]],
+                            bbox=None,
                         )
                         elements.append(element)
 
@@ -197,106 +225,95 @@ class FileExtractorDocument(FileExtractor):
                             f"Could not extract table {table_num} on page {page_num}: {e}"
                         )
 
-            except AttributeError:
-                # find_tables() not available in older PyMuPDF versions
-                return []
             except Exception as e:
                 self.logger.error(f"Table extraction failed on page {page_num}: {e}")
-                return []
 
             return elements
 
-        def _extract_images(page: fitz.Page, page_num: int) -> List[ImageElement]:
+        def _extract_images(page_num: int) -> List[ImageElement]:
             """
-            Extract embedded images and apply OCR to them.
+            Extract embedded images and applies OCR.
             """
+
             elements: List[ImageElement] = []
 
             try:
-                image_list = page.get_images(full=True)
 
-                for img_index, img_info in enumerate(image_list):
-                    try:
-                        xref = img_info[0]
+                pdf = pdfium.PdfDocument(file_path)
+                page = pdf[page_num]
 
-                        # Extract image
-                        base_image = page.parent.extract_image(xref)
-                        image_bytes = base_image["image"]
+                page_objects = page.get_objects()
 
-                        # Convert to PIL Image
-                        image = Image.open(io.BytesIO(image_bytes))
+                for img_index, obj in enumerate(page_objects):
+                    if isinstance(obj, PdfImage):
+                        bitmap = obj.get_bitmap()
+                        pil_image = bitmap.to_pil()
 
-                        # Apply OCR
                         text = pytesseract.image_to_string(
-                            image, lang=self.ocr_lang
+                            pil_image, lang=self.ocr_lang
                         ).strip()
 
-                        if text is None:
+                        if not text:
                             continue
 
                         self.logger.debug(
-                            f"Performed OCR on embedded image from page {page_num}."
+                            f"Performed OCR on embedded image {img_index} from page {page_num}."
                         )
+
                         element = ImageElement.build(
-                            content=text,
+                            content=self._sanitize_text(text),
                             index=page_num,
                             source="ocr",
                             ocr_lang=self.ocr_lang,
-                            image_format=base_image["ext"],
-                            image_size=(
-                                base_image["width"],
-                                base_image["height"],
-                            ),
+                            image_size=obj.get_px_size(),
                         )
                         elements.append(element)
 
-                    except Exception as e:
-                        self.logger.error(
-                            f"Could not OCR image {img_index} on page {page_num}: {e}"
-                        )
-                        continue
-
             except Exception as e:
-                print(f"  Warning: Image extraction failed on page {page_num}: {e}")
+                self.logger.warning(f"Image extraction failed on page {page_num}: {e}")
 
             return elements
 
-        def _extract_scan(page: fitz.Page, page_num: int) -> List[ImageElement]:
+        def _extract_page(page_num: int) -> List[ImageElement]:
             """
-            Extract embedded images and apply OCR to them.
+            Convert PDF page to image and apply OCR.
             """
             elements: List[ImageElement] = []
 
             try:
-                # Convert page to image
-                pix = page.get_pixmap(dpi=self.ocr_dpi)
-                img_data = pix.tobytes("png")
-                img = Image.open(io.BytesIO(img_data))
+                pdf = pdfium.PdfDocument(file_path)
 
-                # Apply OCR
-                text = pytesseract.image_to_string(img, lang=self.ocr_lang).strip()
+                page = pdf.get_page(page_num)
 
-                if text is None:
-                    return []
+                # Render page to bitmap
+                # scale: 1.0 = 72 DPI, 2.0 = 144 DPI, 4.0 = 288 DPI
+                bitmap: PdfBitmap = page.render(
+                    scale=4,
+                    rotation=0,
+                )
 
-                self.logger.debug(f"Performed OCR on scanned page {page_num}.")
+                image = bitmap.to_pil()
+
+                text = pytesseract.image_to_string(image, lang=self.ocr_lang).strip()
+
+                if not text:
+                    return elements
+
+                self.logger.debug(f"Performed OCR on page {page_num}.")
                 element = ImageElement.build(
-                    content=text,
+                    content=self._sanitize_text(text),
                     index=page_num,
                     source="ocr",
                     ocr_lang=self.ocr_lang,
                     image_format=".pdf",
-                    image_size=(
-                        pix.width,
-                        pix.height,
-                    ),
+                    image_size=(image.width, image.height),
                 )
                 elements.append(element)
-                return elements
 
             except Exception as e:
-                self.logger.error(f"Could not OCR scanned page {page_num}: {e}")
-                return []
+                self.logger.error(f"Could not OCR page {page_num}: {e}")
+
+            return elements
 
         # =====================
         # PDF EXTRACTION LOGIC
@@ -307,39 +324,41 @@ class FileExtractorDocument(FileExtractor):
             return []
 
         elements: List[FileElement] = []
+
         try:
-            doc = fitz.open(file_path)
-
-            for page_num in range(len(doc)):
-
-                page = doc[page_num]
-
-                native_text = page.get_text("text").strip()
-                has_native_text = len(native_text) >= text_threshold
-
-                # Page has readable content
-                if has_native_text:
-                    self.logger.info(
-                        f"Extracting readable text from '{os.path.basename(file_path)}' page {page_num}."
+            # Open with pdfplumber for better extraction
+            with plumber_open(file_path) as pdf:
+                for page_num, page in enumerate(pdf.pages, start=1):
+                    # Check if page has native text
+                    native_text = page.extract_text()
+                    has_native_text = (
+                        native_text and len(native_text.strip()) >= text_threshold
                     )
-                    text_elements = _extract_text(page, page_num)
-                    elements.extend(text_elements)
 
-                    table_elements = _extract_tables(page, page_num)
-                    elements.extend(table_elements)
+                    if has_native_text:
+                        self.logger.info(
+                            f"Extracting readable text from '{os.path.basename(file_path)}' page {page_num}."
+                        )
 
-                    image_elements = _extract_images(page, page_num)
-                    elements.extend(image_elements)
+                        # Extract text with layout
+                        text_elements = _extract_text(page, page_num)
+                        elements.extend(text_elements)
 
-                # Page is likely scanned - use OCR on entire page
-                else:
-                    self.logger.info(
-                        f"Performing OCR scan from '{os.path.basename(file_path)}' page {page_num}."
-                    )
-                    ocr_element = _extract_scan(page, page_num)
-                    elements.extend(ocr_element)
+                        # Extract tables
+                        table_elements = _extract_tables(page, page_num)
+                        elements.extend(table_elements)
 
-            doc.close()
+                        # Extract images (limited functionality)
+                        image_elements = _extract_images(page_num)
+                        elements.extend(image_elements)
+
+                    else:
+                        # Page is likely scanned - use OCR on entire page
+                        self.logger.info(
+                            f"Performing OCR scan from '{os.path.basename(file_path)}' page {page_num}."
+                        )
+                        ocr_elements = _extract_page(page_num)
+                        elements.extend(ocr_elements)
 
         except Exception as e:
             self.logger.error(f"Error processing PDF {file_path}: {e}")
@@ -347,94 +366,456 @@ class FileExtractorDocument(FileExtractor):
 
         return elements
 
-    def _extract_docx(self, file_path: str) -> List[FileElement]:
+
+    def _extract_other(self, file_path: str) -> List[FileElement]:
         """
-        Extract text from DOCX file.
-
-        Parameters
-        ----------
-            file_path: Path to DOCX file
-
-        Returns:
-            List of Element objects with page metadata
+        Converts a document to PDF using LibreOffice.
+        Returns the path to the generated PDF.
         """
-        try:
-            elements = partition_docx(
-                filename=file_path,
-                include_page_breaks=True,
-            )
 
-            # Add page numbers based on page breaks
-            page_number = 1
-            for el in elements:
-                # Check if element is a page break
-                if hasattr(el, "category") and el.category == "PageBreak":
-                    page_number += 1
-                    continue
+        input_path = os.path.abspath(os.path.dirname(file_path))
+        output_dir = os.path.abspath(os.path.dirname(file_path))
 
-                # Set page number in metadata
-                if (
-                    not hasattr(el.metadata, "page_number")
-                    or el.metadata.page_number is None
-                ):
-                    el.metadata.page_number = page_number
+        os.makedirs(output_dir, exist_ok=True)
 
-            # Filter out page break elements
-            elements = [
-                el for el in elements if getattr(el, "category", None) != "PageBreak"
-            ]
+        cmd = [
+            "libreoffice",
+            "--headless",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            output_dir,
+            input_path,
+        ]
 
-            return elements
+        subprocess.run(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+        )
 
-        except Exception as e:
-            print(f"Error extracting DOCX: {e}")
-            return []
+        pdf_name = Path(input_path).with_suffix(".pdf").name
+        pdf_path = os.path.join(output_dir, pdf_name)
 
-    def _extract_doc(self, file_path: str) -> List[FileElement]:
-        """
-        Extract text from DOC file (legacy Word format).
+        return self._extract_pdf(file_path=pdf_path)
 
-        Note: This requires conversion to DOCX first, which may need
-        additional tools like LibreOffice or antiword.
 
-        Parameters
-        ----------
-            file_path: Path to DOC file
+    # def _extract_docx(self, file_path: str) -> List[FileElement]:
+    #     """
+    #     Extract text, tables, and images from DOCX files.
+    #     Uses python-docx (MIT License) for structured extraction and OCR for embedded images.
 
-        Returns:
-            List of Element objects with page metadata
-        """
-        try:
-            # Try using unstructured's auto partition which handles DOC
-            from unstructured.partition.auto import partition
+    #     Parameters
+    #     ----------
+    #         file_path: Path to DOCX file
 
-            elements = partition(
-                filename=file_path,
-                include_page_breaks=True,
-            )
+    #     Returns:
+    #         List of Element objects with page/paragraph metadata
+    #     """
 
-            # Process page numbers similar to DOCX
-            page_number = 1
-            for el in elements:
-                if hasattr(el, "category") and el.category == "PageBreak":
-                    page_number += 1
-                    continue
+    #     def _extract_text_and_tables(
+    #         doc: Document,
+    #     ) -> tuple[List[TextElement], List[TableElement]]:
+    #         """
+    #         Extract text paragraphs and tables from the document.
+    #         """
 
-                if (
-                    not hasattr(el.metadata, "page_number")
-                    or el.metadata.page_number is None
-                ):
-                    el.metadata.page_number = page_number
+    #         text_elements: List[TextElement] = []
+    #         table_elements: List[TableElement] = []
 
-            elements = [
-                el for el in elements if getattr(el, "category", None) != "PageBreak"
-            ]
+    #         element_index = 0
 
-            return elements
+    #         for block in doc.element.body:
+    #             # Handle paragraphs
+    #             if block.tag.endswith("p"):
+    #                 para_obj = None
+    #                 # Find corresponding paragraph object
+    #                 for para in doc.paragraphs:
+    #                     if para._element == block:
+    #                         para_obj = para
+    #                         break
 
-        except Exception as e:
-            print(f"Error extracting DOC: {e}")
-            print(
-                "Note: DOC format may require additional dependencies or conversion tools."
-            )
-            return []
+    #                 if para_obj and para_obj.text.strip():
+    #                     text = para_obj.text.strip()
+
+    #                     self.logger.debug(
+    #                         f"Found text paragraph at index {element_index}."
+    #                     )
+    #                     element = TextElement.build(
+    #                         content=self._sanitize_text(text),
+    #                         source="native",
+    #                         index=element_index,
+    #                     )
+    #                     text_elements.append(element)
+    #                     element_index += 1
+
+    #             # Handle tables
+    #             elif block.tag.endswith("tbl"):
+    #                 table_obj = None
+    #                 # Find corresponding table object
+    #                 for table in doc.tables:
+    #                     if table._element == block:
+    #                         table_obj = table
+    #                         break
+
+    #                 if table_obj:
+    #                     try:
+    #                         # Extract table data
+    #                         data = []
+    #                         for row in table_obj.rows:
+    #                             row_data = [cell.text.strip() for cell in row.cells]
+    #                             data.append(row_data)
+
+    #                         if data and len(data) > 1:  # At least header + one row
+    #                             # Convert to string representation
+    #                             df = pd.DataFrame(data[1:], columns=data[0])
+    #                             text = df.to_string(index=False)
+
+    #                             self.logger.debug(
+    #                                 f"Found table at index {element_index}."
+    #                             )
+    #                             element = TableElement.build(
+    #                                 content=self._sanitize_text(text),
+    #                                 source="native",
+    #                                 index=element_index,
+    #                                 columns=data[0],
+    #                             )
+    #                             table_elements.append(element)
+    #                             element_index += 1
+
+    #                     except Exception as e:
+    #                         self.logger.warning(
+    #                             f"Could not extract table at index {element_index}: {e}"
+    #                         )
+
+    #         return text_elements, table_elements
+
+    #     def _extract_images(file_path: str) -> List[ImageElement]:
+    #         """
+    #         Extract embedded images from DOCX and apply OCR.
+    #         DOCX files are ZIP archives containing images in word/media/.
+    #         """
+    #         elements: List[ImageElement] = []
+
+    #         try:
+    #             with zipfile.ZipFile(file_path, "r") as docx_zip:
+    #                 # List all files in the media directory
+    #                 media_files = [
+    #                     name
+    #                     for name in docx_zip.namelist()
+    #                     if name.startswith("word/media/")
+    #                 ]
+
+    #                 for img_index, media_file in enumerate(media_files):
+    #                     try:
+    #                         # Read image data
+    #                         image_data = docx_zip.read(media_file)
+
+    #                         # Determine image format from filename
+    #                         ext = os.path.splitext(media_file)[1].lower()
+    #                         if ext not in [
+    #                             ".png",
+    #                             ".jpg",
+    #                             ".jpeg",
+    #                             ".gif",
+    #                             ".bmp",
+    #                             ".tiff",
+    #                         ]:
+    #                             continue
+
+    #                         image = Image.open(io.BytesIO(image_data))
+
+    #                         text = pytesseract.image_to_string(
+    #                             image, lang=self.ocr_lang
+    #                         ).strip()
+
+    #                         if not text:
+    #                             continue
+
+    #                         self.logger.debug(
+    #                             f"Performed OCR on embedded image {img_index}."
+    #                         )
+    #                         element = ImageElement.build(
+    #                             content=self._sanitize_text(text),
+    #                             index=img_index,
+    #                             source="ocr",
+    #                             ocr_lang=self.ocr_lang,
+    #                             image_format=ext,
+    #                             image_size=(image.width, image.height),
+    #                         )
+    #                         elements.append(element)
+
+    #                     except Exception as e:
+    #                         self.logger.error(
+    #                             f"Could not OCR image {img_index} ({media_file}): {e}"
+    #                         )
+    #                         continue
+
+    #         except Exception as e:
+    #             self.logger.error(f"Error extracting images from DOCX: {e}")
+
+    #         return elements
+
+    #     # =====================
+    #     # DOCX EXTRACTION LOGIC
+    #     # =====================
+
+    #     if not os.path.exists(file_path):
+    #         self.logger.error(f"DOCX file not found: {file_path}")
+    #         return []
+
+    #     elements: List[FileElement] = []
+
+    #     try:
+
+    #         self.logger.info(
+    #             f"Extracting content from '{os.path.basename(file_path)}'."
+    #         )
+
+    #         # Load document
+    #         doc = docx.Document(file_path)
+
+    #         # Extract text and tables
+    #         text_elements, table_elements = _extract_text_and_tables(doc)
+    #         elements.extend(text_elements)
+    #         elements.extend(table_elements)
+
+    #         # Extract and OCR images
+    #         image_elements = _extract_images(file_path)
+    #         elements.extend(image_elements)
+
+    #     except Exception as e:
+    #         self.logger.error(f"Error processing DOCX {file_path}: {e}")
+    #         return []
+
+    #     return elements
+
+    # def _extract_doc(self, file_path: str) -> List[FileElement]:
+    #     """
+    #     Extract text, tables, and images from DOC files (legacy Word format).
+    #     Uses LibreOffice to convert to DOCX first, then processes as DOCX.
+    #     Also handles ODT (LibreOffice) files.
+
+    #     Parameters
+    #     ----------
+    #         file_path: Path to DOC or ODT file
+
+    #     Returns:
+    #         List of Element objects with page/paragraph metadata
+    #     """
+
+    #     def _extract_text_from_odt(file_path: str) -> List[TextElement]:
+    #         """
+    #         Extract text from ODT using direct XML parsing.
+    #         ODT files are ZIP archives with content in content.xml.
+    #         """
+    #         elements: List[TextElement] = []
+
+    #         try:
+    #             with zipfile.ZipFile(file_path, "r") as odt_zip:
+    #                 # Read the content.xml file
+    #                 content_xml = odt_zip.read("content.xml")
+
+    #                 # Parse XML
+    #                 root = etree.fromstring(content_xml)
+
+    #                 # Define namespaces
+    #                 namespaces = {
+    #                     "text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
+    #                     "table": "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
+    #                 }
+
+    #                 element_index = 0
+
+    #                 # Extract text paragraphs
+    #                 for para in root.xpath("//text:p", namespaces=namespaces):
+    #                     text = "".join(para.itertext()).strip()
+    #                     if text:
+    #                         self.logger.debug(
+    #                             f"Found text paragraph at index {element_index}."
+    #                         )
+    #                         element = TextElement.build(
+    #                             content=self._sanitize_text(text),
+    #                             source="native",
+    #                             index=element_index,
+    #                         )
+    #                         elements.append(element)
+    #                         element_index += 1
+
+    #         except Exception as e:
+    #             self.logger.error(f"Error extracting text from ODT: {e}")
+
+    #         return elements
+
+    #     def _extract_images_from_odt(file_path: str) -> List[ImageElement]:
+    #         """
+    #         Extract embedded images from ODT and apply OCR.
+    #         ODT files are ZIP archives containing images in Pictures/.
+    #         """
+    #         elements: List[ImageElement] = []
+
+    #         try:
+    #             with zipfile.ZipFile(file_path, "r") as odt_zip:
+    #                 # List all files in the Pictures directory
+    #                 image_files = [
+    #                     name
+    #                     for name in odt_zip.namelist()
+    #                     if name.startswith("Pictures/")
+    #                 ]
+
+    #                 for img_index, image_file in enumerate(image_files):
+    #                     try:
+    #                         # Read image data
+    #                         image_data = odt_zip.read(image_file)
+
+    #                         # Determine image format
+    #                         ext = os.path.splitext(image_file)[1].lower()
+    #                         if ext not in [
+    #                             ".png",
+    #                             ".jpg",
+    #                             ".jpeg",
+    #                             ".gif",
+    #                             ".bmp",
+    #                             ".tiff",
+    #                         ]:
+    #                             continue
+
+    #                         # Convert to PIL Image
+    #                         image = Image.open(io.BytesIO(image_data))
+
+    #                         # Apply OCR
+    #                         text = pytesseract.image_to_string(
+    #                             image, lang=self.ocr_lang
+    #                         ).strip()
+
+    #                         if not text:
+    #                             continue
+
+    #                         self.logger.debug(
+    #                             f"Performed OCR on embedded image {img_index}."
+    #                         )
+    #                         element = ImageElement.build(
+    #                             content=self._sanitize_text(text),
+    #                             index=img_index,
+    #                             source="ocr",
+    #                             ocr_lang=self.ocr_lang,
+    #                             image_format=ext,
+    #                             image_size=(image.width, image.height),
+    #                         )
+    #                         elements.append(element)
+
+    #                     except Exception as e:
+    #                         self.logger.error(
+    #                             f"Could not OCR image {img_index} ({image_file}): {e}"
+    #                         )
+    #                         continue
+
+    #         except Exception as e:
+    #             self.logger.error(f"Error extracting images from ODT: {e}")
+
+    #         return elements
+
+    #     def _convert_doc_to_docx(input_path: str, output_path: str) -> bool:
+    #         """
+    #         Convert DOC to DOCX using LibreOffice in headless mode.
+    #         """
+    #         try:
+    #             import subprocess
+
+    #             output_dir = os.path.dirname(output_path)
+    #             if not output_dir:
+    #                 output_dir = "."
+
+    #             # Use LibreOffice to convert
+    #             result = subprocess.run(
+    #                 [
+    #                     "soffice",
+    #                     "--headless",
+    #                     "--convert-to",
+    #                     "docx",
+    #                     "--outdir",
+    #                     output_dir,
+    #                     input_path,
+    #                 ],
+    #                 capture_output=True,
+    #                 text=True,
+    #                 timeout=60,
+    #             )
+
+    #             if result.returncode != 0:
+    #                 self.logger.error(f"LibreOffice conversion failed: {result.stderr}")
+    #                 return False
+
+    #             # Check if output file was created
+    #             base_name = os.path.splitext(os.path.basename(input_path))[0]
+    #             expected_output = os.path.join(output_dir, f"{base_name}.docx")
+
+    #             if os.path.exists(expected_output):
+    #                 if expected_output != output_path:
+    #                     os.rename(expected_output, output_path)
+    #                 return True
+
+    #             return False
+
+    #         except Exception as e:
+    #             self.logger.error(f"Error converting DOC to DOCX: {e}")
+    #             return False
+
+    #     # =====================
+    #     # DOC/ODT EXTRACTION LOGIC
+    #     # =====================
+
+    #     if not os.path.exists(file_path):
+    #         self.logger.error(f"Document file not found: {file_path}")
+    #         return []
+
+    #     elements: List[FileElement] = []
+    #     file_ext = os.path.splitext(file_path)[1].lower()
+
+    #     try:
+    #         # Handle ODT files directly
+    #         if file_ext == ".odt":
+    #             self.logger.info(
+    #                 f"Extracting content from ODT '{os.path.basename(file_path)}'."
+    #             )
+
+    #             text_elements = _extract_text_from_odt(file_path)
+    #             elements.extend(text_elements)
+
+    #             image_elements = _extract_images_from_odt(file_path)
+    #             elements.extend(image_elements)
+
+    #         # Handle DOC files by converting to DOCX
+    #         elif file_ext == ".doc":
+    #             self.logger.info(
+    #                 f"Converting DOC to DOCX: '{os.path.basename(file_path)}'."
+    #             )
+
+    #             # Create temporary DOCX file
+    #             temp_docx = file_path.replace(".doc", "_temp.docx")
+
+    #             if _convert_doc_to_docx(file_path, temp_docx):
+    #                 self.logger.info(f"Extracting content from converted DOCX.")
+
+    #                 # Extract from converted DOCX
+    #                 elements = self._extract_docx(temp_docx)
+
+    #                 # Clean up temporary file
+    #                 try:
+    #                     os.remove(temp_docx)
+    #                 except:
+    #                     pass
+    #             else:
+    #                 self.logger.error(f"Failed to convert DOC to DOCX: {file_path}")
+    #                 return []
+
+    #         else:
+    #             self.logger.error(f"Unsupported file format: {file_ext}")
+    #             return []
+
+    #     except Exception as e:
+    #         self.logger.error(f"Error processing document {file_path}: {e}")
+    #         return []
+
+    #     return elements

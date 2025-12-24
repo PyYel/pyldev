@@ -2,7 +2,7 @@ mkdocs
 mkdocs-material
 tqdm
 streamlit
-unstructured[csv, doc, docx, epub, md, odt, org, ppt, pptx, rtf, rst, tsv, xlsx]
+# unstructured[csv, doc, docx, epub, md, odt, org, ppt, pptx, rtf, rst, tsv, xlsx]
 pytesseract
 
 # Add PDF parsing dependencies manually (lightweight alternatives)
@@ -11,3 +11,4 @@ pypdf         # Alternative PDF library
 pdf2image     # PDF to image conversion (needs Poppler)
 pytesseract   # OCR wrapper
 pillow        # Image processing
+pdfplumber

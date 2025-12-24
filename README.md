@@ -89,3 +89,33 @@ See the ``.bat`` files and the module [README](./pyldev/wiki/README.md) to use t
 ## Note
 
 See also [***PyYel-MLOps***](https://github.com/PyYel/PyYel-MLOps) and [***PyYel-CloudOps***](https://github.com/PyYel/PyYel-CloudOps) for AI and deployment tools.
+
+## License Notes
+
+```
+This software uses the following open-source libraries:
+
+pypdf - BSD 3-Clause License
+Copyright (c) 2023, pypdf contributors
+
+pdfplumber - MIT License
+Copyright (c) 2023, Jeremy Singer-Vine
+
+pdf2image - MIT License
+Copyright (c) 2023, Edouard Belval
+
+pytesseract - Apache License 2.0
+Copyright (c) 2023, Samuel Hoffstaetter
+
+python-docx - MIT License
+Copyright (c) 2023, Steve Canny
+
+lxml - BSD License
+Copyright (c) 2023, lxml contributors
+
+Pillow - HPND License
+Copyright (c) 2023, Alex Clark and contributors
+
+pandas - BSD 3-Clause License
+Copyright (c) 2023, pandas contributors
+```
