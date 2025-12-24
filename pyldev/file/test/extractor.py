@@ -44,7 +44,7 @@ extractor_slideshow = FileExtractorSlideshow()
 for file in tqdm(files):
 
     try:
-
+        
         elements = extractor_document.extract(file_path=file)
         elements = extractor_document._group_elements(elements=elements)
         extractor_document.file_path = file

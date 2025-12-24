@@ -39,7 +39,6 @@ class FileExtractor(File):
         Save batches to disk. format="txt" writes a plain text file with blank-line separators.
         """
 
-
         if not isinstance(elements, List):
             elements = [elements]
 
@@ -119,12 +118,18 @@ class FileExtractor(File):
 
         # Merges into same TextElement.content the grouped FileElement.content
         regrouped_elements = []
-        for index, elements in enumerate(grouped_elements.values()):
+        for elements in grouped_elements.values():
+
+            index = elements[
+                0
+            ].index  # Retreive one of the element.index (they are all the same, because grouped by index)
             content = (
                 f"{index_type.upper()} {index}:\n\n" if index_type is not None else ""
             )
+
             for element in elements:
                 content += element.content
+
             regrouped_elements.append(
                 TextElement.build(
                     content=content,

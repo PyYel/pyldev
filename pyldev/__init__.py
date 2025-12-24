@@ -13,7 +13,7 @@ def _config_logger(
     logs_dir: Optional[str] = None,
     logs_level: Optional[str] = None,
     logs_output: Optional[str] = None,
-    ):
+):
     """
     Configures a standardized logger for ``Database`` modules. Environement configuration is recommended.
 
@@ -39,7 +39,7 @@ def _config_logger(
     if logs_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
         logs_level = os.getenv("LOGS_LEVEL", "INFO")
 
-    # If kwargs is None 
+    # If kwargs is None
     if logs_dir is None:
         logs_dir = os.getenv("LOGS_DIR", None)
     # If env is None
@@ -78,7 +78,9 @@ def _config_logger(
             console_handler.setLevel(logging._nameToLevel[logs_level])
             console_handler.setFormatter(formatter)
             logger.addHandler(console_handler)
-            logger.info(f"Logging handler configured for console output, set to level '{logs_level}'.")
+            logger.info(
+                f"Logging handler configured for console output, set to level '{logs_level}'."
+            )
 
         if "file" in logs_output:
             file_handler = logging.FileHandler(
@@ -87,6 +89,8 @@ def _config_logger(
             file_handler.setLevel(logging._nameToLevel[logs_level])
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
-            logger.info(f"Logging handler configured for file output, set to level '{logs_level}'.")
+            logger.info(
+                f"Logging handler configured for file output, set to level '{logs_level}'."
+            )
 
     return logger

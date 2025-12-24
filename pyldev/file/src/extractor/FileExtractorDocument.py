@@ -11,12 +11,13 @@ import sys
 import io
 import pandas as pd
 import subprocess
+import shutil
 
 # PDF libraries - all open source
-# from pdfplumber import open as plumber_open 
+# from pdfplumber import open as plumber_open
 import pdfplumber
 from pdfplumber.page import Page
-import pypdfium2 as pdfium 
+import pypdfium2 as pdfium
 from pypdfium2 import PdfPage, PdfImage, PdfBitmap
 
 from pyldev import _config_logger
@@ -265,12 +266,16 @@ class FileExtractorDocument(FileExtractor):
                                 image_size=obj.get_px_size(),
                             )
                             elements.append(element)
-                            
+
                     except Exception as e:
-                        self.logger.warning(f"Image extraction failed on page {page_num} for object {obj_index}: {e}")
+                        self.logger.warning(
+                            f"Image extraction failed on page {page_num} for object {obj_index}: {e}"
+                        )
 
             except Exception as e:
-                self.logger.error(f"PDF loading page {page_num} failed before image extaction: {e}")
+                self.logger.error(
+                    f"PDF loading page {page_num} failed before image extaction: {e}"
+                )
 
             return elements
 
@@ -332,11 +337,13 @@ class FileExtractorDocument(FileExtractor):
 
             # Open with pdfplumber for better extraction
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as plumber_pdf:
-                
+
                 # This gets pdf plumber page
                 for page_num, plumber_page in enumerate(plumber_pdf.pages, start=1):
                     # This gets pdfium page
-                    pdfium_page = pdfium_pdf.get_page(page_num-1) # pdfplumber index starts at 1
+                    pdfium_page = pdfium_pdf.get_page(
+                        page_num - 1
+                    )  # pdfplumber index starts at 1
 
                     # Check if page has native text
                     native_text = plumber_page.extract_text()
@@ -345,7 +352,7 @@ class FileExtractorDocument(FileExtractor):
                     )
 
                     if has_native_text:
-                        self.logger.info(
+                        self.logger.debug(
                             f"Extracting content from '{os.path.basename(file_path)}' page {page_num}."
                         )
 
@@ -363,54 +370,74 @@ class FileExtractorDocument(FileExtractor):
 
                     else:
                         # Page is likely scanned - use OCR on entire page
-                        self.logger.info(
+                        self.logger.debug(
                             f"Performing OCR scan from '{os.path.basename(file_path)}' page {page_num}."
                         )
                         ocr_elements = _extract_page(pdfium_page, page_num)
                         elements.extend(ocr_elements)
-            
+
             pdfium_pdf.close()
-                
+
         except Exception as e:
             self.logger.error(f"Error processing PDF {file_path}: {e}")
             return []
 
         return elements
 
-
     def _extract_other(self, file_path: str) -> List[FileElement]:
         """
-        Converts a document to PDF using LibreOffice.
-        Returns the path to the generated PDF.
+        Converts a document to PDF using LibreOffice,
+        keeps the PDF, then extracts content from it.
         """
 
-        input_path = file_path
-        output_dir = os.path.join(os.path.dirname(file_path))
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(file_path)
 
-        os.makedirs(output_dir, exist_ok=True)
+        input_path = os.path.abspath(file_path)
+        input_dir = os.path.dirname(input_path)
+        base_name = os.path.splitext(os.path.basename(input_path))[0]
+        pdf_path = os.path.join(input_dir, f"{base_name}.pdf")
 
+        os.makedirs(input_dir, exist_ok=True)
+
+        if sys.platform == "win32":
+            soffice_bin = r"C:\Program Files\LibreOffice\program\soffice.exe"
+            if not os.path.exists(soffice_bin):
+                # fallback to PATH
+                soffice_bin = shutil.which("soffice")
+        else:
+            soffice_bin = shutil.which("soffice") or shutil.which("libreoffice")
+
+        if not soffice_bin:
+            raise RuntimeError("LibreOffice (soffice/libreoffice) not found on PATH")
+        
         cmd = [
-            "libreoffice",
+            soffice_bin,
             "--headless",
             "--convert-to",
             "pdf",
             "--outdir",
-            output_dir,
+            input_dir,
             input_path,
         ]
 
-        subprocess.run(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True,
-        )
+        try:
+            subprocess.run(
+                cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"LibreOffice conversion failed: {e.stderr}")
+            return []
 
-        pdf_name = Path(input_path).with_suffix(".pdf").name
-        pdf_path = os.path.join(output_dir, pdf_name)
+        if not os.path.exists(pdf_path):
+            self.logger.error(f"PDF was not created: {pdf_path}")
+            return []
 
         return self._extract_pdf(file_path=pdf_path)
-
 
     # def _extract_docx(self, file_path: str) -> List[FileElement]:
     #     """
