@@ -11,7 +11,7 @@ __all__ = [
 def _config_logger(
     logs_name: str,
     logs_dir: Optional[str] = os.getenv("LOGS_DIR", None),
-    logs_level: str = os.getenv("LOGS_LEVEL", "INFO"),
+    logs_level: Optional[str] = None,
     logs_output: list[str] = (
         ["console", "file"] if os.getenv("LOGS_DIR", None) else ["console"]
     ),
@@ -39,7 +39,7 @@ def _config_logger(
 
     # Must be a valid log level alias
     if logs_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-        logs_level = "INFO"
+        logs_level = os.getenv("LOGS_LEVEL", "INFO")
 
     # Automatic subfolder formatting
     if logs_dir is None:
@@ -71,7 +71,7 @@ def _config_logger(
             console_handler.setLevel(logging._nameToLevel[logs_level])
             console_handler.setFormatter(formatter)
             logger.addHandler(console_handler)
-            logger.info("Logging handler configured for console output.")
+            logger.info(f"Logging handler configured for console output, set to level '{logs_level}'.")
 
         if "file" in logs_output:
             file_handler = logging.FileHandler(
@@ -80,6 +80,6 @@ def _config_logger(
             file_handler.setLevel(logging._nameToLevel[logs_level])
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
-            logger.info("Logging handler configured for file output.")
+            logger.info(f"Logging handler configured for file output, set to level '{logs_level}'.")
 
     return logger

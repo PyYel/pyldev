@@ -15,6 +15,9 @@ from file import (
 )
 import pyldev
 
+os.environ["LOGS_LEVEL"] = "DEBUG"
+print(os.getenv("LOGS_LEVEL"))
+
 output_dir = os.path.join(MAIN_DIR, "file", "test", "outputs")
 os.makedirs(output_dir, exist_ok=True)
 for dir in [os.path.join(output_dir, dir) for dir in os.listdir(output_dir)]:
@@ -32,7 +35,7 @@ extractor_document = FileExtractorDocument()
 extractor_document.logger = pyldev._config_logger(
     logs_name="ExtractorTests",
     logs_output=["console", "file"],
-    logs_level="DEBUG",
+    # logs_level="DEBUG",
 )
 
 extractor_slideshow = FileExtractorSlideshow()
