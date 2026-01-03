@@ -7,12 +7,7 @@ MAIN_DIR = os.path.dirname(os.path.dirname((os.path.dirname(__file__))))
 if __name__ == "__main__":
     sys.path.append(MAIN_DIR)
 
-from file import (
-    FileExtractorDocument,
-    FileExtractorMedia,
-    FileExtractorSlideshow,
-    FileExtractorSpreadsheet,
-)
+from file import *
 import pyldev
 
 os.environ["LOGS_LEVEL"] = "INFO"
@@ -32,7 +27,7 @@ files = [
     if not file.endswith(".gitignore")
 ]  # test files in /files folder
 
-extractor_document = FileExtractorDocument()
+extractor_document = FileExtractorDocument2(cache_dir=os.path.join(os.path.dirname(__file__), "test"))
 # extractor_document.logger = pyldev._config_logger(
 #     logs_name="ExtractorTests",
 #     logs_output=["console", "file"],
@@ -44,8 +39,13 @@ extractor_slideshow = FileExtractorSlideshow()
 for file in tqdm(files):
 
     try:
-        
+
         elements = extractor_document.extract(file_path=file)
+        import pprint
+        pprint.pprint(elements)
+        # sys.exit()
+        continue
+
         elements = extractor_document._group_elements(elements=elements)
         extractor_document.file_path = file
 
