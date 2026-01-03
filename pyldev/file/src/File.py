@@ -58,6 +58,23 @@ class File(ABC):
 
         return unicodedata.normalize("NFC", text)
 
+    def _get_soffice_path(self) -> Optional[str]:
+        """
+        Get the path to LibreOffice soffice binary.
+        
+        Returns
+        -------
+        path: Optional[str]
+            Path to soffice binary or None if not found
+        """
+        if sys.platform == "win32":
+            soffice_bin = r"C:\Program Files\LibreOffice\program\soffice.exe"
+            if os.path.exists(soffice_bin):
+                return soffice_bin
+            return shutil.which("soffice")
+        else:
+            return shutil.which("soffice") or shutil.which("libreoffice")
+
     def _read_file(self) -> BytesIO:
         """
         Populate self.file_bytes from self.file_path if needed.
