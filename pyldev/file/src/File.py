@@ -61,7 +61,7 @@ class File(ABC):
     def _get_soffice_path(self) -> Optional[str]:
         """
         Get the path to LibreOffice soffice binary.
-        
+
         Returns
         -------
         path: Optional[str]

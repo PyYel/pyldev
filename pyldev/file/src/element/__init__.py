@@ -1,4 +1,4 @@
-from typing import Literal, Tuple, Union, Optional, List, Annotated
+from typing import Literal, Tuple, Union, Optional, List, Annotated, Any
 from pydantic import BaseModel, Field
 
 __all__ = [
@@ -102,38 +102,32 @@ class Element(BaseModel):
     """
 
     content: str
-    # type: Literal["text", "table", "image", "chunk"]
+    type: Literal["text", "table", "image", "chunk"]
     source: Literal["native", "ocr", "llm"]
     index: int
     file: FileMetadata
-    # metadata: Union[ImageMetadata, AudioMetadata, VideoMetadata, TextMetadata, TableMetadata]
+    metadata: Union[
+        ImageMetadata, AudioMetadata, VideoMetadata, TextMetadata, TableMetadata, Any
+    ]
 
     @classmethod
-    def build(cls, file_name, *args, **kwargs):
+    def build(cls, *args, **kwargs):
         raise NotImplementedError
 
 
 class TextElement(Element):
-    """
-    Text Element
-    """
-
-    metadata: TextMetadata
-    type: Literal["text"] = "text"
-
-    @classmethod
-    def build(
-        cls,
+    def __init__(
+        self,
         *,
         content: str,
         source: Literal["native", "ocr", "llm"],
         index: int,
-        bbox: Optional[tuple[float, float, float, float]] = None,
-        ocr_lang: Optional[str] = None,
-        ocr_dpi: Optional[int] = None,
+        bbox=None,
+        ocr_lang=None,
+        ocr_dpi=None,
         **kwargs,
-    ) -> "TextElement":
-        return cls(
+    ):
+        super().__init__(
             content=content,
             type="text",
             source=source,
@@ -147,52 +141,68 @@ class TextElement(Element):
             metadata=TextMetadata(bbox=bbox, ocr_lang=ocr_lang, ocr_dpi=ocr_dpi),
         )
 
+    # Legacy / TODO: factories upgrade
+    # @classmethod
+    # def build(
+    #     cls,
+    #     *,
+    #     content: str,
+    #     source: Literal["native", "ocr", "llm"],
+    #     index: int,
+    #     bbox=None,
+    #     ocr_lang=None,
+    #     ocr_dpi=None,
+    #     **kwargs,
+    # ) -> "TextElement":
+    #     return cls(
+    #         content=content,
+    #         type="text",
+    #         source=source,
+    #         index=index,
+    #         file=FileMetadata(
+    #             file_name=kwargs.get("file_name"),
+    #             file_format=kwargs.get("file_format"),
+    #             file_author=kwargs.get("file_author"),
+    #             file_date=kwargs.get("file_date"),
+    #         ),
+    #         metadata=TextMetadata(bbox=bbox, ocr_lang=ocr_lang, ocr_dpi=ocr_dpi),
+    #     )
+
 
 class TableElement(Element):
-    """
-    Text Element
-    """
 
-    metadata: TableMetadata
-    type: Literal["table"] = "table"
-
-    @classmethod
-    def build(
-        cls,
+    def __init__(
+        self,
         *,
         content: str,
         source: Literal["native", "ocr", "llm"],
         index: int,
         bbox: Optional[tuple[float, float, float, float]] = None,
         columns: Optional[List[str]] = None,
-        **kwargs,
-    ) -> "TableElement":
-        return cls(
+        file_name: Optional[str] = None,
+        file_format: Optional[str] = None,
+        file_author: Optional[str] = None,
+        file_date: Optional[str] = None,
+    ):
+        super().__init__(
             content=content,
             type="table",
             source=source,
             index=index,
             file=FileMetadata(
-                file_name=kwargs.get("file_name"),
-                file_format=kwargs.get("file_format"),
-                file_author=kwargs.get("file_author"),
-                file_date=kwargs.get("file_date"),
+                file_name=file_name,
+                file_format=file_format,
+                file_author=file_author,
+                file_date=file_date,
             ),
             metadata=TableMetadata(columns=columns, bbox=bbox),
         )
 
 
 class ImageElement(Element):
-    """
-    Text Element
-    """
 
-    metadata: ImageMetadata
-    type: Literal["image"] = "image"
-
-    @classmethod
-    def build(
-        cls,
+    def __init__(
+        self,
         *,
         content: str,
         index: int,
@@ -200,18 +210,21 @@ class ImageElement(Element):
         ocr_lang: Optional[str] = None,
         image_format: Optional[str] = None,
         image_dims: Optional[Tuple[int, int]] = None,
-        **kwargs,
-    ) -> "ImageElement":
-        return cls(
+        file_name: Optional[str] = None,
+        file_format: Optional[str] = None,
+        file_author: Optional[str] = None,
+        file_date: Optional[str] = None,
+    ):
+        super().__init__(
             content=content,
             type="image",
             source=source,
             index=index,
             file=FileMetadata(
-                file_name=kwargs.get("file_name"),
-                file_format=kwargs.get("file_format"),
-                file_author=kwargs.get("file_author"),
-                file_date=kwargs.get("file_date"),
+                file_name=file_name,
+                file_format=file_format,
+                file_author=file_author,
+                file_date=file_date,
             ),
             metadata=ImageMetadata(
                 ocr_lang=ocr_lang,
@@ -221,39 +234,39 @@ class ImageElement(Element):
         )
 
 
-class ChunkElement(Element):
-    """
-    Chunk Element
-    """
+# class ChunkElement(Element):
+#     """
+#     Chunk Element
+#     """
 
-    metadata: ChunkMetadata
-    type: Literal["chunk"] = "chunk"
+#     metadata: ChunkMetadata
+#     type: Literal["chunk"] = "chunk"
 
-    @classmethod
-    def build(
-        cls,
-        *,
-        content: str,
-        index: int,
-        source: Literal["aggregated"],
-        ocr_lang: Optional[str] = None,
-        **kwargs,
-    ) -> "ChunkElement":
-        return cls(
-            content=content,
-            type="chunk",
-            source="aggregated",
-            index=index,
-            file=FileMetadata(
-                file_name=kwargs.get("file_name"),
-                file_format=kwargs.get("file_format"),
-                file_author=kwargs.get("file_author"),
-                file_date=kwargs.get("file_date"),
-            ),
-            metadata=ChunkMetadata(
-                ocr_lang=ocr_lang,
-            ),
-        )
+#     @classmethod
+#     def build(
+#         cls,
+#         *,
+#         content: str,
+#         index: int,
+#         source: Literal["aggregated"],
+#         ocr_lang: Optional[str] = None,
+#         **kwargs,
+#     ) -> "ChunkElement":
+#         return cls(
+#             content=content,
+#             type="chunk",
+#             source="aggregated",
+#             index=index,
+#             file=FileMetadata(
+#                 file_name=kwargs.get("file_name"),
+#                 file_format=kwargs.get("file_format"),
+#                 file_author=kwargs.get("file_author"),
+#                 file_date=kwargs.get("file_date"),
+#             ),
+#             metadata=ChunkMetadata(
+#                 ocr_lang=ocr_lang,
+#             ),
+#         )
 
 
 FileElement = Annotated[

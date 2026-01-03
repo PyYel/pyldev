@@ -22,8 +22,7 @@ from pypdfium2 import PdfPage, PdfImage, PdfBitmap
 
 from pyldev import _config_logger
 from .FileExtractor import FileExtractor
-from ..element import *
-
+from ..element import TextElement, TableElement, ImageElement, FileElement
 
 class FileExtractorDocument(FileExtractor):
     """
@@ -176,7 +175,7 @@ class FileExtractorDocument(FileExtractor):
                     y1 = max(w["bottom"] for w in line_words)
 
                     self.logger.debug(f"Found native text from page {page_num}.")
-                    element = TextElement.build(
+                    element = TextElement(
                         content=self._sanitize_text(text),
                         source="native",
                         index=page_num,
@@ -211,7 +210,7 @@ class FileExtractorDocument(FileExtractor):
 
                         self.logger.debug(f"Found native table from page {page_num}.")
 
-                        element = TableElement.build(
+                        element = TableElement(
                             content=self._sanitize_text(text),
                             source="native",
                             index=page_num,
@@ -258,12 +257,12 @@ class FileExtractorDocument(FileExtractor):
                                 f"Performed OCR on embedded image object {obj_index} from page {page_num}."
                             )
 
-                            element = ImageElement.build(
+                            element = ImageElement(
                                 content=self._sanitize_text(text),
                                 index=page_num,
                                 source="ocr",
                                 ocr_lang=self.ocr_lang,
-                                image_size=obj.get_px_size(),
+                                image_dims=obj.get_px_size(),
                             )
                             elements.append(element)
 
@@ -302,13 +301,13 @@ class FileExtractorDocument(FileExtractor):
                     return elements
 
                 self.logger.debug(f"Performed OCR on page {page_num}.")
-                element = ImageElement.build(
+                element = ImageElement(
                     content=self._sanitize_text(text),
                     index=page_num,
                     source="ocr",
                     ocr_lang=self.ocr_lang,
                     image_format=".pdf",
-                    image_size=(image.width, image.height),
+                    image_dims=(image.width, image.height),
                 )
                 elements.append(element)
 
@@ -404,7 +403,7 @@ class FileExtractorDocument(FileExtractor):
         if not soffice_bin:
             self.logger.error("LibreOffice (soffice/libreoffice) not found on PATH")
             return []
-        
+
         cmd = [
             soffice_bin,
             "--headless",
