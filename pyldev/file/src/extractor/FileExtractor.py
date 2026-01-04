@@ -131,7 +131,7 @@ class FileExtractor(File):
                 content += element.content
 
             regrouped_elements.append(
-                TextElement.build(
+                TextElement(
                     content=content,
                     source="native",
                     index=index,
