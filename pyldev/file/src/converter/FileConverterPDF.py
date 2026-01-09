@@ -142,7 +142,7 @@ class FileConverterPDF(FileConverter):
                 result["success"] = True
                 self.logger.warning(f"File is already a PDF: {os.path.basename(input_path)}")
 
-            if input_path.endswith(".txt") or input_path.endswith(".txt"):
+            if input_path.endswith(".txt") or input_path.endswith(".md"):
                 if self.method == "reportlab":
                     self.logger.debug(f"Converting file {os.path.basename(input_path)} into PDF using reportlab.")
                     result["success"] = self._convert_reportlab(input_path, output_path)
@@ -511,22 +511,19 @@ class FileConverterPDF(FileConverter):
     def _convert_docx(
         self,
         input_path: str,
-        output_path: Optional[str] = None,
+        output_path: str,
     ) -> bool:
         """
-        Converts a document to PDF using LibreOffice,
-        keeps the PDF, then extracts content from it.
+        Converts a document to PDF using LibreOffice
+        and renames it to the desired output path.
         """
-
-        if output_path is None:
-            output_path = f"{input_path}.pdf"
 
         if not os.path.exists(input_path):
             self.logger.error(f"File not found: {input_path}")
+            return False
 
-        input_dir = os.path.dirname(input_path)
-
-        os.makedirs(input_dir, exist_ok=True)
+        output_dir = os.path.dirname(output_path)
+        os.makedirs(output_dir, exist_ok=True)
 
         soffice_bin = self._get_soffice_path()
         if not soffice_bin:
@@ -536,10 +533,9 @@ class FileConverterPDF(FileConverter):
         cmd = [
             soffice_bin,
             "--headless",
-            "--convert-to",
-            "pdf",
+            "--convert-to", "pdf",
+            "--outdir", output_dir,
             input_path,
-            output_path,
         ]
 
         try:
@@ -554,8 +550,19 @@ class FileConverterPDF(FileConverter):
             self.logger.error(f"LibreOffice conversion failed: {e.stderr}")
             return False
 
-        if not os.path.exists(output_path):
-            self.logger.error(f"PDF was not created: {output_path}")
+        # LibreOffice always uses the input basename for the output file
+        input_basename = os.path.splitext(os.path.basename(input_path))[0]
+        generated_pdf = os.path.join(output_dir, f"{input_basename}.pdf")
+
+        if not os.path.exists(generated_pdf):
+            self.logger.error(f"Expected PDF not found: {generated_pdf}")
+            return False
+
+        # Rename/move to the exact output_path requested
+        try:
+            shutil.move(generated_pdf, output_path)
+        except Exception as e:
+            self.logger.error(f"Failed to rename PDF: {e}")
             return False
 
         return True

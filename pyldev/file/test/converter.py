@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
 from file import *
 
-os.environ["LOGS_LEVEL"] = "INFO"
+os.environ["LOGS_LEVEL"] = "DEBUG"
 # os.environ["LOGS_DIR"] = os.path.dirname(__file__)
 os.environ["LOGS_OUTPUT"] = "file, console"
 
@@ -31,5 +31,5 @@ output_paths = [os.path.join(output_dir, os.path.basename(file) + ".pdf") for fi
 
 converter = FileConverterPDF()
 
-converter.convert(files)
+converter.convert(files, output_paths=output_paths)
 
