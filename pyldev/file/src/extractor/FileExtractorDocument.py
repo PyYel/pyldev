@@ -24,6 +24,7 @@ from pyldev import _config_logger
 from .FileExtractor import FileExtractor
 from ..element import TextElement, TableElement, ImageElement, FileElement
 
+
 class FileExtractorDocument(FileExtractor):
     """
     Extracts content from various document formats with page-based chunking.

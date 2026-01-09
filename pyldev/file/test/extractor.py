@@ -27,7 +27,9 @@ files = [
     if not file.endswith(".gitignore")
 ]  # test files in /files folder
 
-extractor_document = FileExtractorDocument2(cache_dir=os.path.join(os.path.dirname(__file__), "test"))
+extractor_document = (
+    FileExtractorDocument()
+)  # cache_dir=os.path.join(os.path.dirname(__file__), "test"))
 # extractor_document.logger = pyldev._config_logger(
 #     logs_name="ExtractorTests",
 #     logs_output=["console", "file"],
@@ -41,10 +43,11 @@ for file in tqdm(files):
     try:
 
         elements = extractor_document.extract(file_path=file)
-        import pprint
-        pprint.pprint(elements)
+        # print(elements)
+        # import pprint
+        # pprint.pprint(elements)
         # sys.exit()
-        continue
+        # continue
 
         elements = extractor_document._group_elements(elements=elements)
         extractor_document.file_path = file
@@ -55,14 +58,15 @@ for file in tqdm(files):
             format="txt",
         )
 
-        elements = extractor_slideshow.extract(file_path=file)
-        extractor_slideshow.file_path = file
+        # elements = extractor_slideshow.extract(file_path=file)
+        # extractor_slideshow.file_path = file
 
-        extractor_slideshow._save_elements(
-            output_path=output_dir,
-            elements=elements,
-            format="txt",
-        )
+        # extractor_slideshow._save_elements(
+        #     output_path=output_dir,
+        #     elements=elements,
+        #     format="txt",
+        # )
 
     except Exception as e:
+        print(str(e))
         print(f"EXTRACTOR ERROR: {e}")
