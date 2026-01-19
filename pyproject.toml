@@ -34,6 +34,8 @@ file = [
     "markdown-it-py",
     "requests",
     "pydantic",
+    "mkdocs",
+    "mkdocs-material",
 ]
 
 [tool.setuptools.packages.find]
