@@ -447,12 +447,11 @@ class FileConverterPDF(FileConverter):
             f.write("  features: []\n")
             f.write("extra:\n")
             f.write("  generator: false\n")
-            f.write("plugins: []\n")
+            f.write("plugins:\n")
             f.write("  - minify:\n")
             f.write("      minify_html: true\n")
             f.write("      minify_js: true\n")
             f.write("      minify_css: true\n")
-
         # Build MkDocs site
         try:
             result = subprocess.run(
