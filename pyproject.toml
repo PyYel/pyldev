@@ -31,7 +31,7 @@ file = [
     "Pillow",
     "pandas",
     "reportlab",
-    "markdown_it",
+    "markdown-it-py",
 ]
 
 [tool.setuptools.packages.find]
