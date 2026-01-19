@@ -1,10 +1,5 @@
-"""
-Document extraction class supporting multiple file formats with page-based chunking.
-Uses only open-source, commercially-friendly libraries.
-"""
 
 from typing import List, Dict, Any, Optional, Union
-from pathlib import Path
 import pytesseract
 import os
 import sys
@@ -13,8 +8,6 @@ import pandas as pd
 import subprocess
 import shutil
 
-# PDF libraries - all open source
-# from pdfplumber import open as plumber_open
 import pdfplumber
 from pdfplumber.page import Page
 import pypdfium2 as pdfium
@@ -30,12 +23,6 @@ class FileExtractorDocument(FileExtractor):
     Extracts content from various document formats with page-based chunking.
     Uses only open-source, commercially-friendly libraries.
 
-    Supported formats:
-    - PDF (with OCR via Tesseract)
-    - DOCX (Microsoft Word)
-    - ODT (LibreOffice)
-    - DOC (via LibreOffice conversion)
-
     System dependencies:
     - tesseract-ocr: Required for OCR
     - libreoffice: Optional, only for .doc conversion
@@ -46,11 +33,14 @@ class FileExtractorDocument(FileExtractor):
         chunk_max_char: int = 1000,
         chunk_overlap: int = 100,
         ocr_lang: str = "eng",
-        ocr_dpi: int = 300,
-        group_by_page: bool = True,
     ):
         """
-        Initialize the document extractor.
+        Tool for text extraction from document-like files.
+
+        Supported formats:
+        - pdf 
+        - docx, doc, odt 
+        - md, txt
 
         Parameters
         ----------
@@ -62,8 +52,11 @@ class FileExtractorDocument(FileExtractor):
             Tesseract language code (e.g., 'eng', 'fra', 'eng+fra')
         ocr_dpi:
             DPI for PDF to image conversion
-        group_by_page:
-            If True, merge all chunks per page into single text
+
+        Notes
+        -----
+        - This class requires external dependencies for conversion:
+            - 
         """
         super().__init__()
 
@@ -72,8 +65,6 @@ class FileExtractorDocument(FileExtractor):
         self.chunk_max_char = chunk_max_char
         self.chunk_overlap = chunk_overlap
         self.ocr_lang = ocr_lang
-        self.ocr_dpi = ocr_dpi
-        self.group_by_page = group_by_page
 
     def extract(self, file_path: str) -> List[FileElement]:
         """
