@@ -1,6 +1,4 @@
 from abc import ABC, abstractmethod
-from file import File
-from pyldev import _config_logger
 from PIL.Image import Image
 import io
 from typing import Dict, List, Any, Optional, Union, Literal
@@ -9,7 +7,7 @@ import sys, os
 from collections import defaultdict
 
 from ..element import FileElement, TextElement
-
+from ..File import File
 
 class FileConverter(File):
 

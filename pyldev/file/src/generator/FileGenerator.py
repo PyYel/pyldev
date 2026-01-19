@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from file import File
 
+from ..File import File
 
 class FileGenerator(File):
 
