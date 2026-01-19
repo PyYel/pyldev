@@ -12,7 +12,7 @@ authors = [
     { name="Maxime BLIDI", email="blidi.maxime@gmail.com" }
 ]
 dependencies = [
-    "tqdm", "pydantic"
+    "tqdm"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -32,6 +32,8 @@ file = [
     "pandas",
     "reportlab",
     "markdown-it-py",
+    "requests",
+    "pydantic",
 ]
 
 [tool.setuptools.packages.find]
