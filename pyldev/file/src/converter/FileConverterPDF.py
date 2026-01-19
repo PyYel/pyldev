@@ -444,6 +444,10 @@ class FileConverterPDF(FileConverter):
             f.write(f"site_name: {os.path.basename(input_path)}\n")
             f.write("theme:\n")
             f.write("  name: material\n")
+            f.write("  features: []\n")
+            f.write("extra:\n")
+            f.write("  generator: false\n")
+            f.write("plugins: []\n")
 
         # Build MkDocs site
         try:
