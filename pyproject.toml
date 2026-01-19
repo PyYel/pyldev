@@ -12,7 +12,7 @@ authors = [
     { name="Maxime BLIDI", email="blidi.maxime@gmail.com" }
 ]
 dependencies = [
-    "tqdm",
+    "tqdm", "pydantic"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

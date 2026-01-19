@@ -4,6 +4,7 @@ tqdm
 streamlit
 # unstructured[csv, doc, docx, epub, md, odt, org, ppt, pptx, rtf, rst, tsv, xlsx]
 pytesseract
+pydantic
 
 # Add PDF parsing dependencies manually (lightweight alternatives)
 pdfminer.six  # Pure Python PDF text extraction
