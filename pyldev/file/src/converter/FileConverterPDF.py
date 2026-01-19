@@ -70,12 +70,13 @@ class FileConverterPDF(FileConverter):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=5,
+                check=True,
             )
             self.method = "wkhtmltopdf"
             self.logger.debug("Auto-selected wkhtmltopdf (available)")
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+        except Exception as e:
             self.method = "reportlab"
-            self.logger.debug("Auto-selected reportlab (wkhtmltopdf not available)")
+            self.logger.debug(f"Auto-selected reportlab (wkhtmltopdf not available): {e}")
 
         # ReportLab styles setup
         if self.method == "reportlab":
