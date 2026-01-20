@@ -411,24 +411,54 @@ class FileConverterPDF(FileConverter):
         self.logger.info(f"PDF generated successfully: {output_path}")
         return True
     
-    
+
     def _convert_wkhtmltopdf(
         self,
         input_path: str,
         output_path: Optional[str] = None,
     ) -> bool:
         """Convert using wkhtmltopdf via MkDocs (requires wkhtmltopdf binaries)"""
-
+        
         def _create_default_custom_css():
             """Create a default CSS file for better PDF appearance"""
             css_content = """
-            /* Remove @page margin - let wkhtmltopdf handle it */
+            /* Hide MkDocs navigation and UI elements for PDF */
+            .md-sidebar,
+            .md-header,
+            .md-nav,
+            .md-tabs,
+            .md-footer,
+            .md-top {
+                display: none !important;
+            }
+            
+            /* Make main content full width */
+            .md-main__inner {
+                margin: 0 !important;
+                max-width: 100% !important;
+            }
+            
+            .md-content {
+                max-width: 100% !important;
+                margin: 0 !important;
+            }
+            
+            .md-content__inner {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            /* Reset container widths */
+            .md-grid {
+                max-width: 100% !important;
+                margin: 0 !important;
+            }
             
             body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                 line-height: 1.6;
                 color: #333;
-                font-size: 12pt;  /* Increased from 11pt */
+                font-size: 12pt;
             }
             
             h1, h2, h3, h4, h5, h6 {
@@ -445,7 +475,7 @@ class FileConverterPDF(FileConverter):
             
             p {
                 margin: 0.4em 0;
-                text-align: left;  /* Changed from justify for better readability */
+                text-align: left;
             }
             
             code {

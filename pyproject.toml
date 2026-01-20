@@ -28,7 +28,6 @@ file = [
     "pytesseract",
     "pdfplumber",
     "pypdfium2",
-    "Pillow",
     "pandas",
     "reportlab",
     "markdown-it-py",
@@ -36,7 +35,6 @@ file = [
     "pydantic",
     "mkdocs",
     "mkdocs-material",
-    "mkdocs-minify-plugin",
 ]
 
 [tool.setuptools.packages.find]
