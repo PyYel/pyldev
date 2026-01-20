@@ -454,100 +454,170 @@ class FileConverterPDF(FileConverter):
                 margin: 0 !important;
             }
             
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                font-size: 12pt;
+            /* Override ALL MkDocs typography with larger sizes */
+            * {
+                font-size: inherit !important;
             }
             
-            h1, h2, h3, h4, h5, h6 {
-                color: #2c3e50;
-                page-break-after: avoid;
-                margin-top: 1.2em;
-                margin-bottom: 0.4em;
+            html {
+                font-size: 14pt !important;
             }
             
-            h1 { font-size: 26pt; border-bottom: 2px solid #3498db; padding-bottom: 0.3em; }
-            h2 { font-size: 22pt; border-bottom: 1px solid #bdc3c7; padding-bottom: 0.2em; }
-            h3 { font-size: 18pt; }
-            h4 { font-size: 15pt; }
-            
-            p {
-                margin: 0.4em 0;
-                text-align: left;
+            body,
+            .md-typeset {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+                line-height: 1.6 !important;
+                color: #333 !important;
+                font-size: 14pt !important;
             }
             
-            code {
-                background-color: #f5f5f5;
-                padding: 2px 6px;
-                border-radius: 3px;
-                font-family: 'Courier New', monospace;
-                font-size: 0.9em;
+            h1, 
+            .md-typeset h1 {
+                color: #2c3e50 !important;
+                page-break-after: avoid !important;
+                margin-top: 1.5em !important;
+                margin-bottom: 0.5em !important;
+                font-size: 28pt !important;
+                border-bottom: 2px solid #3498db !important;
+                padding-bottom: 0.3em !important;
+                font-weight: bold !important;
             }
             
-            pre {
-                background-color: #f8f8f8;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                padding: 12px;
-                overflow-x: auto;
-                page-break-inside: avoid;
-                font-size: 11pt;
+            h2,
+            .md-typeset h2 {
+                color: #2c3e50 !important;
+                page-break-after: avoid !important;
+                margin-top: 1.3em !important;
+                margin-bottom: 0.4em !important;
+                font-size: 24pt !important;
+                border-bottom: 1px solid #bdc3c7 !important;
+                padding-bottom: 0.2em !important;
+                font-weight: bold !important;
             }
             
-            pre code {
-                background-color: transparent;
-                padding: 0;
+            h3,
+            .md-typeset h3 {
+                color: #2c3e50 !important;
+                page-break-after: avoid !important;
+                margin-top: 1.2em !important;
+                margin-bottom: 0.4em !important;
+                font-size: 20pt !important;
+                font-weight: bold !important;
+            }
+            
+            h4,
+            .md-typeset h4 {
+                color: #2c3e50 !important;
+                font-size: 17pt !important;
+                font-weight: bold !important;
+            }
+            
+            h5,
+            .md-typeset h5 {
+                color: #2c3e50 !important;
+                font-size: 15pt !important;
+                font-weight: bold !important;
+            }
+            
+            h6,
+            .md-typeset h6 {
+                color: #2c3e50 !important;
+                font-size: 14pt !important;
+                font-weight: bold !important;
+            }
+            
+            p,
+            .md-typeset p {
+                margin: 0.5em 0 !important;
+                text-align: left !important;
+                font-size: 14pt !important;
+            }
+            
+            code,
+            .md-typeset code {
+                background-color: #f5f5f5 !important;
+                padding: 3px 6px !important;
+                border-radius: 3px !important;
+                font-family: 'Courier New', monospace !important;
+                font-size: 13pt !important;
+            }
+            
+            pre,
+            .md-typeset pre {
+                background-color: #f8f8f8 !important;
+                border: 1px solid #ddd !important;
+                border-radius: 4px !important;
+                padding: 12px !important;
+                overflow-x: auto !important;
+                page-break-inside: avoid !important;
+            }
+            
+            pre code,
+            .md-typeset pre code {
+                background-color: transparent !important;
+                padding: 0 !important;
+                font-size: 12pt !important;
             }
             
             img {
-                max-width: 100%;
-                height: auto;
-                display: block;
-                margin: 1em auto;
-                page-break-inside: avoid;
+                max-width: 100% !important;
+                height: auto !important;
+                display: block !important;
+                margin: 1em auto !important;
+                page-break-inside: avoid !important;
             }
             
-            table {
-                border-collapse: collapse;
-                width: 100%;
-                margin: 1em 0;
-                page-break-inside: avoid;
-                font-size: 11pt;
+            table,
+            .md-typeset table {
+                border-collapse: collapse !important;
+                width: 100% !important;
+                margin: 1em 0 !important;
+                page-break-inside: avoid !important;
+                font-size: 13pt !important;
             }
             
-            th, td {
-                border: 1px solid #ddd;
-                padding: 8px 12px;
-                text-align: left;
+            th, td,
+            .md-typeset th,
+            .md-typeset td {
+                border: 1px solid #ddd !important;
+                padding: 10px 14px !important;
+                text-align: left !important;
+                font-size: 13pt !important;
             }
             
-            th {
-                background-color: #f2f2f2;
-                font-weight: bold;
+            th,
+            .md-typeset th {
+                background-color: #f2f2f2 !important;
+                font-weight: bold !important;
             }
             
-            blockquote {
-                border-left: 4px solid #3498db;
-                padding-left: 1em;
-                margin-left: 0;
-                color: #555;
-                font-style: italic;
+            blockquote,
+            .md-typeset blockquote {
+                border-left: 4px solid #3498db !important;
+                padding-left: 1em !important;
+                margin-left: 0 !important;
+                color: #555 !important;
+                font-style: italic !important;
+                font-size: 14pt !important;
             }
             
-            ul, ol {
-                margin: 0.4em 0;
-                padding-left: 2em;
+            ul, ol,
+            .md-typeset ul,
+            .md-typeset ol {
+                margin: 0.5em 0 !important;
+                padding-left: 2em !important;
+                font-size: 14pt !important;
             }
             
-            li {
-                margin: 0.2em 0;
+            li,
+            .md-typeset li {
+                margin: 0.3em 0 !important;
+                font-size: 14pt !important;
             }
             
             /* Avoid breaking elements across pages */
             h1, h2, h3, h4, h5, h6, img, table, pre {
-                page-break-inside: avoid;
+                page-break-inside: avoid !important;
             }
             """
             
