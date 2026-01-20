@@ -418,6 +418,115 @@ class FileConverterPDF(FileConverter):
         output_path: Optional[str] = None,
     ) -> bool:
         """Convert using wkhtmltopdf via MkDocs (requires wkhtmltopdf binaries)"""
+
+        def _create_default_custom_css():
+            """Create a default CSS file for better PDF appearance"""
+            css_content = """
+            @page {
+                margin: 20mm;
+            }
+            
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                font-size: 11pt;
+            }
+            
+            h1, h2, h3, h4, h5, h6 {
+                color: #2c3e50;
+                page-break-after: avoid;
+                margin-top: 1.5em;
+                margin-bottom: 0.5em;
+            }
+            
+            h1 { font-size: 24pt; border-bottom: 2px solid #3498db; padding-bottom: 0.3em; }
+            h2 { font-size: 20pt; border-bottom: 1px solid #bdc3c7; padding-bottom: 0.2em; }
+            h3 { font-size: 16pt; }
+            
+            p {
+                margin: 0.5em 0;
+                text-align: justify;
+            }
+            
+            code {
+                background-color: #f5f5f5;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-family: 'Courier New', monospace;
+                font-size: 0.9em;
+            }
+            
+            pre {
+                background-color: #f8f8f8;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 12px;
+                overflow-x: auto;
+                page-break-inside: avoid;
+            }
+            
+            pre code {
+                background-color: transparent;
+                padding: 0;
+            }
+            
+            img {
+                max-width: 100%;
+                height: auto;
+                display: block;
+                margin: 1em auto;
+                page-break-inside: avoid;
+            }
+            
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                margin: 1em 0;
+                page-break-inside: avoid;
+            }
+            
+            th, td {
+                border: 1px solid #ddd;
+                padding: 8px 12px;
+                text-align: left;
+            }
+            
+            th {
+                background-color: #f2f2f2;
+                font-weight: bold;
+            }
+            
+            blockquote {
+                border-left: 4px solid #3498db;
+                padding-left: 1em;
+                margin-left: 0;
+                color: #555;
+                font-style: italic;
+            }
+            
+            ul, ol {
+                margin: 0.5em 0;
+                padding-left: 2em;
+            }
+            
+            li {
+                margin: 0.3em 0;
+            }
+            
+            /* Avoid breaking elements across pages */
+            h1, h2, h3, h4, h5, h6, img, table, pre {
+                page-break-inside: avoid;
+            }
+            """
+            
+            css_path = os.path.join(tempfile.gettempdir(), "pdf_style.css")
+            with open(css_path, "w", encoding="utf-8") as f:
+                f.write(css_content)
+            
+            return css_path
+        
+
         ext = os.path.splitext(input_path)[1].lower()
 
         # Create temporary directory for MkDocs project
@@ -509,30 +618,52 @@ class FileConverterPDF(FileConverter):
         # Build wkhtmltopdf command
         cmd = [
             "wkhtmltopdf",
-            "--page-size",
-            "A4",
-            "--margin-top",
-            "10mm",
-            "--margin-bottom",
-            "10mm",
+            # Page setup
+            "--page-size", "A4",
+            "--orientation", "Portrait",
+            
+            # Margins - balanced for A4 (narrower top/bottom, wider sides for readability)
+            "--margin-top", "20mm",
+            "--margin-right", "20mm",
+            "--margin-bottom", "20mm",
+            "--margin-left", "20mm",
+            
+            # Essential for local files
             "--enable-local-file-access",
-        ]
-
-        # Allow access to the site directory and its subdirectories
-        cmd += ["--allow", site_dir]
-        cmd += ["--print-media-type"]
-        cmd += [
+            "--allow", site_dir,
+            
+            # Rendering quality
+            "--print-media-type",  # Use print CSS
+            "--dpi", "300",  # Higher quality (default is 96)
+            "--image-quality", "94",  # High quality images
+            
+            # JavaScript handling (if your content needs it)
+            "--enable-javascript",
             "--javascript-delay", "1000",
             "--no-stop-slow-scripts",
+            
+            # Typography improvements
+            "--minimum-font-size", "12",
+            
+            # Encoding
+            "--encoding", "UTF-8",
         ]
-        cmd += ["--debug-javascript", "--log-level", "info"]
-        
-        if self.custom_css is not None:
-            cmd += ["--allow", os.path.dirname(self.custom_css)]
 
-        if self.custom_css:
-            cmd += ["--user-style-sheet", self.custom_css]
+        # Custom CSS for additional styling
+        if self.custom_css is None:
+            self.custom_css = _create_default_custom_css()
+        cmd += ["--allow", os.path.dirname(self.custom_css)]
+        cmd += ["--user-style-sheet", self.custom_css]
 
+
+        # Optional: Add header/footer for more professional look
+        cmd += [
+            "--footer-center", "[page] of [toPage]",
+            "--footer-font-size", "9",
+            "--footer-spacing", "5",
+        ]
+
+        # Input and output
         cmd += [f"file:///{html_file.replace(os.sep, '/')}", output_path]
 
         # Execute wkhtmltopdf
