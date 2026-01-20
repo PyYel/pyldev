@@ -37,7 +37,7 @@ class FileConverterPDF(FileConverter):
     """
     A unified PDF converter supporting both ReportLab (no external dependencies)
     and wkhtmltopdf (better formatting) conversion methods.
-    
+
     Automatically selects the best available method if 'auto' is specified.
     """
 
@@ -50,7 +50,7 @@ class FileConverterPDF(FileConverter):
         """
         Args:
             method: "auto" (default, uses wkhtmltopdf if available, falls back to reportlab),
-                    "reportlab" (no external dependencies), or 
+                    "reportlab" (no external dependencies), or
                     "wkhtmltopdf" (requires wkhtmltopdf and mkdocs)
             max_image_width: Maximum width for images (ReportLab only)
             max_image_height: Maximum height for images (ReportLab only)
@@ -76,7 +76,9 @@ class FileConverterPDF(FileConverter):
             self.logger.debug("Auto-selected wkhtmltopdf (available)")
         except Exception as e:
             self.method = "reportlab"
-            self.logger.debug(f"Auto-selected reportlab (wkhtmltopdf not available): {e}")
+            self.logger.debug(
+                f"Auto-selected reportlab (wkhtmltopdf not available): {e}"
+            )
 
         # ReportLab styles setup
         if self.method == "reportlab":
@@ -131,39 +133,53 @@ class FileConverterPDF(FileConverter):
             output_paths = [f"{input_path}.pdf" for input_path in input_paths]
 
         successes = []
-        for input_path, output_path in tqdm(zip(input_paths, output_paths), total=len(input_paths)):
+        for input_path, output_path in tqdm(
+            zip(input_paths, output_paths), total=len(input_paths)
+        ):
             result = {
                 "input_path": input_path,
                 "output_path": output_path,
-                "success": False
+                "success": False,
             }
 
             if input_path.endswith(".pdf"):
                 result["output_path"] = input_path
                 result["success"] = True
-                self.logger.warning(f"File is already a PDF: {os.path.basename(input_path)}")
+                self.logger.warning(
+                    f"File is already a PDF: {os.path.basename(input_path)}"
+                )
 
             if input_path.endswith(".txt") or input_path.endswith(".md"):
                 if self.method == "reportlab":
-                    self.logger.debug(f"Converting file {os.path.basename(input_path)} into PDF using reportlab.")
+                    self.logger.debug(
+                        f"Converting file {os.path.basename(input_path)} into PDF using reportlab."
+                    )
                     result["success"] = self._convert_reportlab(input_path, output_path)
                 elif self.method == "wkhtmltopdf":
-                    self.logger.debug(f"Converting file {os.path.basename(input_path)} into PDF using wkhtmltopdf.")
-                    result["success"] = self._convert_wkhtmltopdf(input_path, output_path)
+                    self.logger.debug(
+                        f"Converting file {os.path.basename(input_path)} into PDF using wkhtmltopdf."
+                    )
+                    result["success"] = self._convert_wkhtmltopdf(
+                        input_path, output_path
+                    )
 
             elif input_path.endswith(".docx") or input_path.endswith(".doc"):
-                self.logger.debug(f"Converting file {os.path.basename(input_path)} into PDF using LibreOffice.")
+                self.logger.debug(
+                    f"Converting file {os.path.basename(input_path)} into PDF using LibreOffice."
+                )
                 result["success"] = self._convert_docx(input_path, output_path)
 
             elif input_path.endswith(".pptx") or input_path.endswith(".odt"):
                 # self.logger.debug(f"Converting file {os.path.basename(input_path)} into PDF using LibreOffice.")
                 result["success"] = False
-                self.logger.warning(f"Slideshow conversion not supported for file: {os.path.basename(input_path)}")
+                self.logger.warning(
+                    f"Slideshow conversion not supported for file: {os.path.basename(input_path)}"
+                )
 
             successes.append(result)
 
         return successes
-    
+
     def __call__(self, *args, **kargs):
         return self.convert(*args, **kargs)
 
@@ -410,7 +426,6 @@ class FileConverterPDF(FileConverter):
         doc.build(story)
         self.logger.info(f"PDF generated successfully: {output_path}")
         return True
-    
 
     def _convert_wkhtmltopdf(
         self,
@@ -418,7 +433,7 @@ class FileConverterPDF(FileConverter):
         output_path: Optional[str] = None,
     ) -> bool:
         """Convert using wkhtmltopdf via MkDocs (requires wkhtmltopdf binaries)"""
-        
+
         def _create_default_custom_css():
             """Create a default CSS file for better PDF appearance"""
             css_content = """
@@ -639,13 +654,12 @@ class FileConverterPDF(FileConverter):
                 page-break-inside: avoid !important;
             }
             """
-            
+
             css_path = os.path.join(tempfile.gettempdir(), "pdf_style.css")
             with open(css_path, "w", encoding="utf-8") as f:
                 f.write(css_content)
-            
+
             return css_path
-        
 
         ext = os.path.splitext(input_path)[1].lower()
 
@@ -658,25 +672,25 @@ class FileConverterPDF(FileConverter):
         if ext == ".md":
             md_path = os.path.join(docs_dir, os.path.basename(input_path))
             shutil.copy(input_path, md_path)
-            
+
             # Copy any images referenced in the markdown to docs directory
             input_dir = os.path.dirname(os.path.abspath(input_path))
             with open(input_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            
+
             # Find image references (markdown and HTML img tags)
             img_patterns = [
-                r'!\[.*?\]\((.*?)\)',  # ![alt](path)
+                r"!\[.*?\]\((.*?)\)",  # ![alt](path)
                 r'<img[^>]+src=["\']([^"\']+)["\']',  # <img src="path">
             ]
-            
+
             for pattern in img_patterns:
                 for match in re.finditer(pattern, content):
                     img_path = match.group(1)
                     # Skip URLs
-                    if img_path.startswith(('http://', 'https://', 'data:')):
+                    if img_path.startswith(("http://", "https://", "data:")):
                         continue
-                    
+
                     # Resolve relative paths
                     abs_img_path = os.path.join(input_dir, img_path)
                     if os.path.exists(abs_img_path):
@@ -686,7 +700,10 @@ class FileConverterPDF(FileConverter):
                         os.makedirs(target_dir, exist_ok=True)
                         target_path = os.path.join(docs_dir, img_path)
                         shutil.copy2(abs_img_path, target_path)
-                        self.logger.debug(f"Copied image: {abs_img_path} -> {target_path}")
+                        self.logger.debug(
+                            f"Copied image: {abs_img_path} -> {target_path}"
+                        )
+
         else:  # .txt -> convert to Markdown code block
             md_path = os.path.join(
                 docs_dir,
@@ -739,30 +756,35 @@ class FileConverterPDF(FileConverter):
         cmd = [
             "wkhtmltopdf",
             # Page setup
-            "--page-size", "A4",
-            "--orientation", "Portrait",
-            
+            "--page-size",
+            "A4",
+            "--orientation",
+            "Portrait",
             # Smaller margins
-            "--margin-top", "15mm",
-            "--margin-right", "15mm",
-            "--margin-bottom", "20mm",  # Slightly larger for footer
-            "--margin-left", "15mm",
-            
+            "--margin-top",
+            "15mm",
+            "--margin-right",
+            "15mm",
+            "--margin-bottom",
+            "20mm",  # Slightly larger for footer
+            "--margin-left",
+            "15mm",
             # Essential for local files
             "--enable-local-file-access",
-            "--allow", site_dir,
-            
+            "--allow",
+            site_dir,
             # Rendering quality - REMOVED --dpi which was making things tiny
             "--print-media-type",
-            "--image-quality", "94",
-                        
+            "--image-quality",
+            "94",
             # JavaScript handling
             "--enable-javascript",
-            "--javascript-delay", "1000",
+            "--javascript-delay",
+            "1000",
             "--no-stop-slow-scripts",
-            
             # Encoding
-            "--encoding", "UTF-8",
+            "--encoding",
+            "UTF-8",
         ]
 
         # Custom CSS for additional styling
@@ -773,9 +795,12 @@ class FileConverterPDF(FileConverter):
 
         # Add header/footer for more professional look
         cmd += [
-            "--footer-center", "[page] / [toPage]",
-            "--footer-font-size", "9",
-            "--footer-spacing", "5",
+            "--footer-center",
+            "[page] / [toPage]",
+            "--footer-font-size",
+            "9",
+            "--footer-spacing",
+            "5",
         ]
 
         # Input and output
@@ -800,7 +825,6 @@ class FileConverterPDF(FileConverter):
             shutil.rmtree(temp_dir, ignore_errors=True)
 
         return True
-
 
     def _convert_docx(
         self,
@@ -827,8 +851,10 @@ class FileConverterPDF(FileConverter):
         cmd = [
             soffice_bin,
             "--headless",
-            "--convert-to", "pdf",
-            "--outdir", output_dir,
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            output_dir,
             input_path,
         ]
 

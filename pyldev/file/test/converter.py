@@ -1,4 +1,3 @@
-
 import os, sys
 from tqdm import tqdm
 import json
@@ -27,9 +26,10 @@ files = [
     if not file.endswith(".gitignore")
 ]  # test files in /files folder
 
-output_paths = [os.path.join(output_dir, os.path.basename(file) + ".pdf") for file in files]
+output_paths = [
+    os.path.join(output_dir, os.path.basename(file) + ".pdf") for file in files
+]
 
 converter = FileConverterPDF()
 
 converter.convert(files, output_paths=output_paths)
-

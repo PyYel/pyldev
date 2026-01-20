@@ -1,4 +1,3 @@
-
 from typing import List, Dict, Any, Optional, Union
 import pytesseract
 import os
@@ -38,8 +37,8 @@ class FileExtractorDocument(FileExtractor):
         Tool for text extraction from document-like files.
 
         Supported formats:
-        - pdf 
-        - docx, doc, odt 
+        - pdf
+        - docx, doc, odt
         - md, txt
 
         Parameters
@@ -56,7 +55,7 @@ class FileExtractorDocument(FileExtractor):
         Notes
         -----
         - This class requires external dependencies for conversion:
-            - 
+            -
         """
         super().__init__()
 

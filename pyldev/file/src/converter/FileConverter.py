@@ -9,6 +9,7 @@ from collections import defaultdict
 from ..element import FileElement, TextElement
 from ..File import File
 
+
 class FileConverter(File):
 
     def __init__(self) -> None:
