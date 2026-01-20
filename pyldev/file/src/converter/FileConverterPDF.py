@@ -743,10 +743,10 @@ class FileConverterPDF(FileConverter):
             "--orientation", "Portrait",
             
             # Smaller margins
-            "--margin-top", "10mm",
-            "--margin-right", "10mm",
-            "--margin-bottom", "15mm",  # Slightly larger for footer
-            "--margin-left", "10mm",
+            "--margin-top", "15mm",
+            "--margin-right", "15mm",
+            "--margin-bottom", "20mm",  # Slightly larger for footer
+            "--margin-left", "15mm",
             
             # Essential for local files
             "--enable-local-file-access",
@@ -755,10 +755,7 @@ class FileConverterPDF(FileConverter):
             # Rendering quality - REMOVED --dpi which was making things tiny
             "--print-media-type",
             "--image-quality", "94",
-            
-            # ZOOM to make content larger
-            "--zoom", "1.3",  # This will make everything 30% larger
-            
+                        
             # JavaScript handling
             "--enable-javascript",
             "--javascript-delay", "1000",
@@ -767,7 +764,7 @@ class FileConverterPDF(FileConverter):
             # Encoding
             "--encoding", "UTF-8",
         ]
-        
+
         # Custom CSS for additional styling
         if self.custom_css is None:
             self.custom_css = _create_default_custom_css()
