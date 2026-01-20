@@ -418,7 +418,7 @@ class FileConverterPDF(FileConverter):
         output_path: Optional[str] = None,
     ) -> bool:
         """Convert using wkhtmltopdf via MkDocs (requires wkhtmltopdf binaries)"""
-        
+
         def _create_default_custom_css():
             """Create a default CSS file for better PDF appearance"""
             css_content = """
@@ -742,20 +742,22 @@ class FileConverterPDF(FileConverter):
             "--page-size", "A4",
             "--orientation", "Portrait",
             
-            # Smaller margins - standard document margins
-            "--margin-top", "15mm",
-            "--margin-right", "15mm",
-            "--margin-bottom", "20mm",  # Slightly larger for footer
-            "--margin-left", "15mm",
+            # Smaller margins
+            "--margin-top", "10mm",
+            "--margin-right", "10mm",
+            "--margin-bottom", "15mm",  # Slightly larger for footer
+            "--margin-left", "10mm",
             
             # Essential for local files
             "--enable-local-file-access",
             "--allow", site_dir,
             
-            # Rendering quality
+            # Rendering quality - REMOVED --dpi which was making things tiny
             "--print-media-type",
-            "--dpi", "300",
             "--image-quality", "94",
+            
+            # ZOOM to make content larger
+            "--zoom", "1.3",  # This will make everything 30% larger
             
             # JavaScript handling
             "--enable-javascript",
@@ -765,7 +767,7 @@ class FileConverterPDF(FileConverter):
             # Encoding
             "--encoding", "UTF-8",
         ]
-
+        
         # Custom CSS for additional styling
         if self.custom_css is None:
             self.custom_css = _create_default_custom_css()
