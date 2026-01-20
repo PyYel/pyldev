@@ -447,11 +447,11 @@ class FileConverterPDF(FileConverter):
             f.write("  features: []\n")
             f.write("extra:\n")
             f.write("  generator: false\n")
-            f.write("plugins:\n")
-            f.write("  - minify:\n")
-            f.write("      minify_html: true\n")
-            f.write("      minify_js: true\n")
-            f.write("      minify_css: true\n")
+            f.write("plugins:[]\n")
+            # f.write("  - minify:\n")
+            # f.write("      minify_html: true\n")
+            # f.write("      minify_js: true\n")
+            # f.write("      minify_css: true\n")
         # Build MkDocs site
         try:
             result = subprocess.run(
@@ -490,6 +490,16 @@ class FileConverterPDF(FileConverter):
             "10mm",
             "--enable-local-file-access",
         ]
+
+        cmd += ["--allow", "app/site"]
+        cmd += ["--print-media-type"]
+        cmd += [
+            "--javascript-delay", "1000",
+            "--no-stop-slow-scripts",
+        ]
+        cmd += ["--debug-javascript", "--log-level", "info"]
+        if self.custom_css is not None:
+            cmd += ["--allow", os.path.dirname(self.custom_css)]
 
         if self.custom_css:
             cmd += ["--user-style-sheet", self.custom_css]
