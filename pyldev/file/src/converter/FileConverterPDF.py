@@ -410,6 +410,7 @@ class FileConverterPDF(FileConverter):
         doc.build(story)
         self.logger.info(f"PDF generated successfully: {output_path}")
         return True
+    
 
     def _convert_wkhtmltopdf(
         self,
@@ -428,6 +429,35 @@ class FileConverterPDF(FileConverter):
         if ext == ".md":
             md_path = os.path.join(docs_dir, os.path.basename(input_path))
             shutil.copy(input_path, md_path)
+            
+            # Copy any images referenced in the markdown to docs directory
+            input_dir = os.path.dirname(os.path.abspath(input_path))
+            with open(input_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # Find image references (markdown and HTML img tags)
+            img_patterns = [
+                r'!\[.*?\]\((.*?)\)',  # ![alt](path)
+                r'<img[^>]+src=["\']([^"\']+)["\']',  # <img src="path">
+            ]
+            
+            for pattern in img_patterns:
+                for match in re.finditer(pattern, content):
+                    img_path = match.group(1)
+                    # Skip URLs
+                    if img_path.startswith(('http://', 'https://', 'data:')):
+                        continue
+                    
+                    # Resolve relative paths
+                    abs_img_path = os.path.join(input_dir, img_path)
+                    if os.path.exists(abs_img_path):
+                        # Preserve directory structure
+                        rel_dir = os.path.dirname(img_path)
+                        target_dir = os.path.join(docs_dir, rel_dir)
+                        os.makedirs(target_dir, exist_ok=True)
+                        target_path = os.path.join(docs_dir, img_path)
+                        shutil.copy2(abs_img_path, target_path)
+                        self.logger.debug(f"Copied image: {abs_img_path} -> {target_path}")
         else:  # .txt -> convert to Markdown code block
             md_path = os.path.join(
                 docs_dir,
@@ -448,10 +478,7 @@ class FileConverterPDF(FileConverter):
             f.write("extra:\n")
             f.write("  generator: false\n")
             f.write("plugins: []\n")
-            # f.write("  - minify:\n")
-            # f.write("      minify_html: true\n")
-            # f.write("      minify_js: true\n")
-            # f.write("      minify_css: true\n")
+
         # Build MkDocs site
         try:
             result = subprocess.run(
@@ -491,13 +518,15 @@ class FileConverterPDF(FileConverter):
             "--enable-local-file-access",
         ]
 
-        cmd += ["--allow", "app/site"]
+        # Allow access to the site directory and its subdirectories
+        cmd += ["--allow", site_dir]
         cmd += ["--print-media-type"]
         cmd += [
             "--javascript-delay", "1000",
             "--no-stop-slow-scripts",
         ]
         cmd += ["--debug-javascript", "--log-level", "info"]
+        
         if self.custom_css is not None:
             cmd += ["--allow", os.path.dirname(self.custom_css)]
 
