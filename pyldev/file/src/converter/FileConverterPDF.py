@@ -418,7 +418,7 @@ class FileConverterPDF(FileConverter):
         output_path: Optional[str] = None,
     ) -> bool:
         """Convert using wkhtmltopdf via MkDocs (requires wkhtmltopdf binaries)"""
-
+        
         def _create_default_custom_css():
             """Create a default CSS file for better PDF appearance"""
             css_content = """
@@ -454,9 +454,9 @@ class FileConverterPDF(FileConverter):
                 margin: 0 !important;
             }
             
-            /* AGGRESSIVE font size override */
+            /* Base font size */
             html {
-                font-size: 18pt !important;
+                font-size: 12pt !important;
             }
             
             body,
@@ -470,7 +470,7 @@ class FileConverterPDF(FileConverter):
             
             body,
             .md-typeset {
-                font-size: 18pt !important;
+                font-size: 12pt !important;
             }
             
             h1, 
@@ -478,9 +478,9 @@ class FileConverterPDF(FileConverter):
             h1 * {
                 color: #2c3e50 !important;
                 page-break-after: avoid !important;
-                margin-top: 1.5em !important;
+                margin-top: 1.2em !important;
                 margin-bottom: 0.5em !important;
-                font-size: 32pt !important;
+                font-size: 22pt !important;
                 border-bottom: 2px solid #3498db !important;
                 padding-bottom: 0.3em !important;
                 font-weight: bold !important;
@@ -491,9 +491,9 @@ class FileConverterPDF(FileConverter):
             h2 * {
                 color: #2c3e50 !important;
                 page-break-after: avoid !important;
-                margin-top: 1.3em !important;
+                margin-top: 1.1em !important;
                 margin-bottom: 0.4em !important;
-                font-size: 28pt !important;
+                font-size: 18pt !important;
                 border-bottom: 1px solid #bdc3c7 !important;
                 padding-bottom: 0.2em !important;
                 font-weight: bold !important;
@@ -504,9 +504,9 @@ class FileConverterPDF(FileConverter):
             h3 * {
                 color: #2c3e50 !important;
                 page-break-after: avoid !important;
-                margin-top: 1.2em !important;
+                margin-top: 1em !important;
                 margin-bottom: 0.4em !important;
-                font-size: 24pt !important;
+                font-size: 15pt !important;
                 font-weight: bold !important;
             }
             
@@ -514,7 +514,7 @@ class FileConverterPDF(FileConverter):
             .md-typeset h4,
             h4 * {
                 color: #2c3e50 !important;
-                font-size: 20pt !important;
+                font-size: 13pt !important;
                 font-weight: bold !important;
             }
             
@@ -522,7 +522,7 @@ class FileConverterPDF(FileConverter):
             .md-typeset h5,
             h5 * {
                 color: #2c3e50 !important;
-                font-size: 18pt !important;
+                font-size: 12pt !important;
                 font-weight: bold !important;
             }
             
@@ -530,7 +530,7 @@ class FileConverterPDF(FileConverter):
             .md-typeset h6,
             h6 * {
                 color: #2c3e50 !important;
-                font-size: 18pt !important;
+                font-size: 12pt !important;
                 font-weight: bold !important;
             }
             
@@ -538,18 +538,18 @@ class FileConverterPDF(FileConverter):
             .md-typeset p,
             p *,
             div {
-                margin: 0.5em 0 !important;
+                margin: 0.4em 0 !important;
                 text-align: left !important;
-                font-size: 18pt !important;
+                font-size: 12pt !important;
             }
             
             code,
             .md-typeset code {
                 background-color: #f5f5f5 !important;
-                padding: 3px 6px !important;
+                padding: 2px 5px !important;
                 border-radius: 3px !important;
                 font-family: 'Courier New', monospace !important;
-                font-size: 16pt !important;
+                font-size: 11pt !important;
             }
             
             pre,
@@ -557,7 +557,7 @@ class FileConverterPDF(FileConverter):
                 background-color: #f8f8f8 !important;
                 border: 1px solid #ddd !important;
                 border-radius: 4px !important;
-                padding: 12px !important;
+                padding: 10px !important;
                 overflow-x: auto !important;
                 page-break-inside: avoid !important;
             }
@@ -567,7 +567,7 @@ class FileConverterPDF(FileConverter):
             pre code * {
                 background-color: transparent !important;
                 padding: 0 !important;
-                font-size: 15pt !important;
+                font-size: 10pt !important;
             }
             
             img {
@@ -591,9 +591,9 @@ class FileConverterPDF(FileConverter):
             .md-typeset td,
             th *, td * {
                 border: 1px solid #ddd !important;
-                padding: 10px 14px !important;
+                padding: 8px 12px !important;
                 text-align: left !important;
-                font-size: 16pt !important;
+                font-size: 11pt !important;
             }
             
             th,
@@ -610,27 +610,27 @@ class FileConverterPDF(FileConverter):
                 margin-left: 0 !important;
                 color: #555 !important;
                 font-style: italic !important;
-                font-size: 18pt !important;
+                font-size: 12pt !important;
             }
             
             ul, ol,
             .md-typeset ul,
             .md-typeset ol {
-                margin: 0.5em 0 !important;
+                margin: 0.4em 0 !important;
                 padding-left: 2em !important;
             }
             
             li,
             .md-typeset li,
             li * {
-                margin: 0.3em 0 !important;
-                font-size: 18pt !important;
+                margin: 0.2em 0 !important;
+                font-size: 12pt !important;
             }
             
             /* Links */
             a,
             .md-typeset a {
-                font-size: 18pt !important;
+                font-size: 12pt !important;
                 color: #3498db !important;
             }
             
