@@ -411,7 +411,7 @@ class FileConverterPDF(FileConverter):
         self.logger.info(f"PDF generated successfully: {output_path}")
         return True
     
-
+    
     def _convert_wkhtmltopdf(
         self,
         input_path: str,
@@ -422,31 +422,30 @@ class FileConverterPDF(FileConverter):
         def _create_default_custom_css():
             """Create a default CSS file for better PDF appearance"""
             css_content = """
-            @page {
-                margin: 20mm;
-            }
+            /* Remove @page margin - let wkhtmltopdf handle it */
             
             body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                 line-height: 1.6;
                 color: #333;
-                font-size: 11pt;
+                font-size: 12pt;  /* Increased from 11pt */
             }
             
             h1, h2, h3, h4, h5, h6 {
                 color: #2c3e50;
                 page-break-after: avoid;
-                margin-top: 1.5em;
-                margin-bottom: 0.5em;
+                margin-top: 1.2em;
+                margin-bottom: 0.4em;
             }
             
-            h1 { font-size: 24pt; border-bottom: 2px solid #3498db; padding-bottom: 0.3em; }
-            h2 { font-size: 20pt; border-bottom: 1px solid #bdc3c7; padding-bottom: 0.2em; }
-            h3 { font-size: 16pt; }
+            h1 { font-size: 26pt; border-bottom: 2px solid #3498db; padding-bottom: 0.3em; }
+            h2 { font-size: 22pt; border-bottom: 1px solid #bdc3c7; padding-bottom: 0.2em; }
+            h3 { font-size: 18pt; }
+            h4 { font-size: 15pt; }
             
             p {
-                margin: 0.5em 0;
-                text-align: justify;
+                margin: 0.4em 0;
+                text-align: left;  /* Changed from justify for better readability */
             }
             
             code {
@@ -464,6 +463,7 @@ class FileConverterPDF(FileConverter):
                 padding: 12px;
                 overflow-x: auto;
                 page-break-inside: avoid;
+                font-size: 11pt;
             }
             
             pre code {
@@ -484,6 +484,7 @@ class FileConverterPDF(FileConverter):
                 width: 100%;
                 margin: 1em 0;
                 page-break-inside: avoid;
+                font-size: 11pt;
             }
             
             th, td {
@@ -506,12 +507,12 @@ class FileConverterPDF(FileConverter):
             }
             
             ul, ol {
-                margin: 0.5em 0;
+                margin: 0.4em 0;
                 padding-left: 2em;
             }
             
             li {
-                margin: 0.3em 0;
+                margin: 0.2em 0;
             }
             
             /* Avoid breaking elements across pages */
@@ -622,28 +623,25 @@ class FileConverterPDF(FileConverter):
             "--page-size", "A4",
             "--orientation", "Portrait",
             
-            # Margins - balanced for A4 (narrower top/bottom, wider sides for readability)
-            "--margin-top", "20mm",
-            "--margin-right", "20mm",
-            "--margin-bottom", "20mm",
-            "--margin-left", "20mm",
+            # Smaller margins - standard document margins
+            "--margin-top", "15mm",
+            "--margin-right", "15mm",
+            "--margin-bottom", "20mm",  # Slightly larger for footer
+            "--margin-left", "15mm",
             
             # Essential for local files
             "--enable-local-file-access",
             "--allow", site_dir,
             
             # Rendering quality
-            "--print-media-type",  # Use print CSS
-            "--dpi", "300",  # Higher quality (default is 96)
-            "--image-quality", "94",  # High quality images
+            "--print-media-type",
+            "--dpi", "300",
+            "--image-quality", "94",
             
-            # JavaScript handling (if your content needs it)
+            # JavaScript handling
             "--enable-javascript",
             "--javascript-delay", "1000",
             "--no-stop-slow-scripts",
-            
-            # Typography improvements
-            "--minimum-font-size", "12",
             
             # Encoding
             "--encoding", "UTF-8",
@@ -655,10 +653,9 @@ class FileConverterPDF(FileConverter):
         cmd += ["--allow", os.path.dirname(self.custom_css)]
         cmd += ["--user-style-sheet", self.custom_css]
 
-
-        # Optional: Add header/footer for more professional look
+        # Add header/footer for more professional look
         cmd += [
-            "--footer-center", "[page] of [toPage]",
+            "--footer-center", "[page] / [toPage]",
             "--footer-font-size", "9",
             "--footer-spacing", "5",
         ]
@@ -685,6 +682,7 @@ class FileConverterPDF(FileConverter):
             shutil.rmtree(temp_dir, ignore_errors=True)
 
         return True
+
 
     def _convert_docx(
         self,
