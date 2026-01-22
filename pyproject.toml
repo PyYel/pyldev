@@ -35,6 +35,7 @@ file = [
     "pydantic",
     "mkdocs",
     "mkdocs-material",
+    "mkdocs-mermaid2-plugin",
 ]
 
 [tool.setuptools.packages.find]

@@ -723,7 +723,8 @@ class FileConverterPDF(FileConverter):
             f.write("  features: []\n")
             f.write("extra:\n")
             f.write("  generator: false\n")
-            f.write("plugins: []\n")
+            f.write("plugins:\n")
+            f.write("  - mermaid2")
 
         # Build MkDocs site
         try:
