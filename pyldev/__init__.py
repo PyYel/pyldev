@@ -78,7 +78,7 @@ def _config_logger(
             console_handler.setLevel(logging._nameToLevel[logs_level])
             console_handler.setFormatter(formatter)
             logger.addHandler(console_handler)
-            logger.info(
+            logger.debug(
                 f"Logging handler configured for console output, set to level '{logs_level}'."
             )
 
@@ -89,7 +89,7 @@ def _config_logger(
             file_handler.setLevel(logging._nameToLevel[logs_level])
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
-            logger.info(
+            logger.debug(
                 f"Logging handler configured for file output, set to level '{logs_level}'."
             )
 
