@@ -13,6 +13,9 @@ os.environ["LOGS_LEVEL"] = "DEBUG"
 # os.environ["LOGS_DIR"] = os.path.dirname(__file__)
 os.environ["LOGS_OUTPUT"] = "file, console"
 
+
+# FILE CONVERTER PDF
+
 output_dir = os.path.join(MAIN_DIR, "file", "test", "outputs")
 os.makedirs(output_dir, exist_ok=True)
 for dir in [os.path.join(output_dir, dir) for dir in os.listdir(output_dir)]:
@@ -31,5 +34,9 @@ output_paths = [
 ]
 
 converter = FileConverterPDF()
-
 converter.convert(files, output_paths=output_paths)
+
+
+# FILE CONVERTER HTML
+converter = FileConverterHTML()
+converter.convert(os.path.join(os.path.dirname(MAIN_DIR), "README.md"), output_paths=os.path.join(output_dir, "readme.html"))

@@ -100,7 +100,7 @@ class FileConverterPDF(FileConverter):
     def convert(
         self,
         input_paths: Union[str, List[str]],
-        output_paths: Optional[List[str]] = None,
+        output_paths: Optional[Union[str, List[str]]] = None,
     ) -> List[dict[str, Union[str, bool]]]:
         """
         Convert a markdown or text file to PDF.
