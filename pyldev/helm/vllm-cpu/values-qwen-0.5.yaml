@@ -1,7 +1,7 @@
 
 modelName: "Qwen/Qwen2.5-0.5B-Instruct"
 replicaCount: 1
-hfToken: "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"
+hfToken: ""
 
 image:
   repository: "vllm/vllm-openai-cpu"
