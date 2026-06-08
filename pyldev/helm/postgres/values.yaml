@@ -1,0 +1,37 @@
+# postgres/values.yaml
+# Wraps the Bitnami PostgreSQL chart for local k3d use.
+# Run `helm dependency update ./postgres` before installing.
+
+postgresql:
+  global:
+    postgresql:
+      auth:
+        username: "litellm_user"
+        password: "litellm_secure_password"
+        database: "litellm_db"
+        postgresPassword: "admin_secure_password"
+
+  image:
+    registry: docker.io
+    repository: bitnami/postgresql
+    tag: "16.2.0-debian-12-r11"
+    pullPolicy: IfNotPresent
+
+  primary:
+    persistence:
+      enabled: true
+      storageClass: "local-path"   # k3d default storage class
+      size: 2Gi                    # Kept small for local dev
+
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+
+    service:
+      type: ClusterIP
+      ports:
+        postgresql: 5432

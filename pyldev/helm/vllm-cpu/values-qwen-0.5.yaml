@@ -1,0 +1,18 @@
+
+modelName: "Qwen/Qwen2.5-0.5B-Instruct"
+replicaCount: 1
+hfToken: "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"
+
+image:
+  repository: "vllm/vllm-openai-cpu"
+  tag: "latest"
+  pullPolicy: "IfNotPresent"
+
+memory:
+  gpuMemoryUtilization: "0.5"
+  kvCacheSpace: "1"
+
+# Toogle if pulling from artifactory, we pull from internet for the moment
+artifactory:
+  secretName: "secret-for-when-we-deploy-through-artifactory"
+  HF_ENDPOINT: "https://huggingface.co" # "https://artifactory.domain.com/artifactory/api/hf/huggingface-remote"

@@ -1,0 +1,48 @@
+# 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # This dynamically names the deployment based on the model (e.g., vllm-qwen2-5-0-5b-instruct)
+  name: vllm-cpu-{{ .Values.modelName | lower | replace "/" "-" | replace "." "-" }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: vllm-cpu-{{ .Values.modelName | lower | replace "/" "-" | replace "." "-" }}
+  template:
+    metadata:
+      labels:
+        app: vllm-cpu-{{ .Values.modelName | lower | replace "/" "-" | replace "." "-" }}
+    spec:
+      {{- if .Values.artifactory.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.artifactory.secretName }}
+      {{- end }}
+      containers:
+      - name: vllm-cpu
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+        command: ["vllm"]
+        args: [
+          "serve", 
+          "{{ .Values.modelName }}", 
+          "--port", "8000", 
+          "--gpu-memory-utilization", "{{ .Values.memory.gpuMemoryUtilization | default "0.5" }}"
+        ]
+        env:
+        - name: VLLM_CPU_KVCACHE_SPACE
+          value: "{{ .Values.memory.kvCacheSpace | default "1" }}"
+        - name: HF_TOKEN
+          value: "{{ .Values.hfToken }}"
+        - name: HF_ENDPOINT
+          value: "{{ .Values.artifactory.HF_ENDPOINT }}" # Artifactory ML endpoint in values
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - name: model-storage
+          mountPath: /root/.cache/huggingface # Default HF path for weigths
+      volumes:
+      - name: model-storage # pvc.yaml
+        persistentVolumeClaim:
+          claimName: vllm-model-cache

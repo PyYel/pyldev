@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: litellm
+  template:
+    metadata:
+      labels:
+        app: litellm
+    spec:
+      # imagePullSecrets:
+      #   - name: secret-for-when-we-deploy-through-artifactory    
+      containers:
+      - name: litellm
+        image: litellm/litellm:latest
+        # image: artifactory.domain.com/docker-local/vllm/vllm-openai-cpu:latest
+        imagePullPolicy: IfNotPresent
+        args: ["--config", "/app/config.yaml", "--port", "4000"] 
+        ports:
+        - containerPort: 4000
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config

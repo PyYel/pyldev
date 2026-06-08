@@ -1,0 +1,63 @@
+# vllm/values.yaml
+# GPU-based vLLM deployment.
+# NOTE: This will NOT run on a CPU-only machine.
+# Kept here as a reference for when GPU nodes are available.
+
+replicaCount: 1
+
+image:
+  repository: vllm/vllm-openai
+  tag: "v0.6.6"
+  pullPolicy: IfNotPresent
+
+model:
+  name: "Qwen/Qwen2.5-1.5B-Instruct"
+  huggingFaceToken: ""
+
+args:
+  - "--model"
+  - "Qwen/Qwen2.5-1.5B-Instruct"
+  - "--dtype"
+  - "bfloat16"
+  - "--max-model-len"
+  - "4096"
+
+env:
+  - name: HF_HOME
+    value: "/data/huggingface"
+
+service:
+  type: ClusterIP
+  port: 8000
+
+resources:
+  requests:
+    cpu: "4"
+    memory: "8Gi"
+    nvidia.com/gpu: "1"
+  limits:
+    cpu: "8"
+    memory: "16Gi"
+    nvidia.com/gpu: "1"
+
+persistence:
+  enabled: true
+  storageClass: ""
+  size: 10Gi
+  mountPath: /data/huggingface
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  failureThreshold: 12
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 90
+  periodSeconds: 30
+  failureThreshold: 5

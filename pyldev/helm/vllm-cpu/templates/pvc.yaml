@@ -1,0 +1,14 @@
+# To avoid downloading the weights every time a pod starts/restarts
+# Weights are saved into the cluster
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-model-cache
+spec:
+  accessModes:
+    - ReadWriteOnce 
+  storageClassName: local-path # k3d, might not work for k8 ?
+  resources:
+    requests:
+      storage: 50Gi
