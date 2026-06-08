@@ -1,41 +1,51 @@
 site_name: My Wiki - A demo for PyYel
+site_dir: "site"
 
-nav:
-  # Note how the mkdocs.yml requires 'page/index.html' and not 'page.md' relative paths
+# nav: # No nav will automatically generate a ToC
+#   # Note how the mkdocs.yml requires 'page/index.html' and not 'page.md' relative paths
 
-  - Home: ./index.html
+#   - Home: ./index.html
 
-  - About: 
-    - The data: home/about_the_data/index.html
+#   - About: 
+#     - The data: home/about_the_data/index.html
 
-    # You must choose between this:
-    # - The features: 
-    #   - Feature 1: home/about_the_features/feature_1/index.html
-    #   - Feature 2: home/about_the_features/feature_2/index.html
+#     # You must choose between this:
+#     # - The features: 
+#     #   - Feature 1: home/about_the_features/feature_1/index.html
+#     #   - Feature 2: home/about_the_features/feature_2/index.html
 
-    # And this:
-    - The features: home/about_the_features/index.html 
+#     # And this:
+#     - The features: home/about_the_features/index.html 
 
-    # This is sadly not possible:
-    # - The features: home/about_the_features/index.html
-    #   - Feature 1: home/about_the_features/feature_1/index.html
-    #   - Feature 2: home/about_the_features/feature_2/index.html
+#     # This is sadly not possible:
+#     # - The features: home/about_the_features/index.html
+#     #   - Feature 1: home/about_the_features/feature_1/index.html
+#     #   - Feature 2: home/about_the_features/feature_2/index.html
 
-
-theme: material
-
-# For customization
-# theme:
-#   name: 'material'
-#   palette:
-#     primary: 'green'
-#     accent: 'black'
+theme:
+  name: 'material'
+  palette:
+    primary: 'green'
+    accent: 'black'
 
 markdown_extensions:
-  - toc:
-      permalink: true
   - admonition
   - codehilite
+  # 1. This handles the '::::' blocks syntax (Content Blocks)
+  - pymdownx.blocks.details 
   - pymdownx.details
-  - pymdownx.superfences
   - pymdownx.extra
+  # 2. Configures Superfences to natively recognize and compile Mermaid code blocks
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search
+  - to-pdf: # pip install mkdocs-to-pdf
+      output_path: "pdf/document.pdf"
+      render_js: true
+      headless_chrome_path: "chromium"
+      custom_template_path: "templates"
