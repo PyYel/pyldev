@@ -1,0 +1,5 @@
+
+artifactory:
+  secret: "artifactory-cyber-secret"
+
+langfuseHost: "http://langfuse-web.langfuse:3000"

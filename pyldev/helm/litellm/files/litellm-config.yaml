@@ -1,0 +1,59 @@
+model_list:
+  - model_name: qwen2.5-0.5b-cpu
+    litellm_params:
+      model: openai/Qwen/Qwen2.5-0.5B-Instruct
+      api_base: http://vllm-cpu-qwen2-5-0-5b-instruct-service:8000/v1 
+      api_key: not-needed
+      drop_params: true
+
+  - model_name: bge-m3-cpu
+    litellm_params:
+      model: openai/BAAI/bge-m3
+      api_base: http://vllm-cpu-bge-m3-service:8000/v1
+      api_key: not-needed
+      drop_params: true
+
+  - model_name: ministral-8b-reasoning
+    litellm_params:
+      model: openai/mistralai/Ministral-3-8B-Reasoning-2512
+      api_base: http://vllm-gpu-ministral-3-8b-reasoning-service:8000/v1
+      api_key: not-needed
+      drop_params: true
+
+  - model_name: mistral-small-24b
+    litellm_params:
+      model: openai/mistralai/Mistral-Small-24B-Instruct-2501
+      api_base: http://vllm-gpu-mistral-small-24b-instruct-service:8000/v1
+      api_key: not-needed
+      drop_params: true
+
+  - model_name: mistral-small-119b
+    litellm_params:
+      model: openai/mistralai/Mistral-Small-4-119B-2603-NVFP4
+      api_base: http://vllm-gpu-mistral-small-4-119b-nvfp4-service:8000/v1
+      api_key: not-needed
+      drop_params: true
+
+  - model_name: bge-m3-gpu
+    litellm_params:
+      model: openai/BAAI/bge-m3
+      api_base: http://vllm-gpu-bge-and-ocr-service:8000/v1
+      api_key: not-needed
+      drop_params: true
+
+  - model_name: qwen2-vl-ocr
+    litellm_params:
+      model: openai/Qwen/Qwen2-VL-7B-Instruct
+      api_base: http://vllm-gpu-bge-and-ocr-service:8001/v1
+      api_key: not-needed
+      drop_params: true
+        
+router_settings:
+  routing_strategy: least-busy
+  num_retries: 0
+  routing_strategy_args:
+    dns_routing: true 
+
+litellm_settings:
+  drop_params: true
+  callbacks: ["langfuse_otel"]

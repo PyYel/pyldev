@@ -1,17 +1,31 @@
+# This exposes vLLM internally. 
+# The idea is to have litellm then connect to the service domain to expose the model
+
+{{- range .Values.llms }}
+{{- $modelSlug := .modelName | lower | replace "/" "-" | replace "." "-" }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-vllm
-  labels:
-    app.kubernetes.io/name: vllm
-    app.kubernetes.io/instance: {{ .Release.Name }}
+  # Dynamically names the service: e.g., vllm-mistralai-ministral-8b-instruct-service
+  name: vllm-{{ $modelSlug }}-service
 spec:
-  type: {{ .Values.service.type }}
+  type: ClusterIP 
+  # clusterIP: None # Headless service for LiteLLM direct pod load balancing
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: http
-      protocol: TCP
-      name: http
+  - port: 8000
+    targetPort: 8000
   selector:
-    app.kubernetes.io/name: vllm
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    # This must perfectly match the labels generated in deployment.yaml
+    app: vllm-gpu-{{ $modelSlug }}
+---
+{{- end }}
+
+# So internally when litellm resolves model pods domains:
+
+# Model 1 (Qwen 0.5B): 
+#   - Pod Label: app: vllm-qwen2-5-0-5b-instruct
+#   - Internal Domain Name: http://vllm-qwen2-5-0-5b-instruct-service:8000/v1
+
+# Model 2 (Llama 8B): 
+#   - Pod Label: app: vllm-meta-llama-3-8b-instruct
+#   - Internal Domain Name: http://vllm-meta-llama-3-8b-instruct-service:8000/v1

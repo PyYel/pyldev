@@ -1,63 +1,189 @@
-# vllm/values.yaml
-# GPU-based vLLM deployment.
-# NOTE: This will NOT run on a CPU-only machine.
-# Kept here as a reference for when GPU nodes are available.
+# HARDWARE
+storage:
+  className: "csi-cinder-high-speed" # OVH storage name
+  claimName: "vllm-model-cache"
 
-replicaCount: 1
+nodeSelector:
+  nodepool: "pool-cyber-gpu-2" # Target GPU node pool
 
-image:
-  repository: vllm/vllm-openai
-  tag: "v0.6.6"
-  pullPolicy: IfNotPresent
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "gpu"
+    # effect: "NoExecute" # NoSchedule # GPU allocation to pods specifying this toleration flag
 
-model:
-  name: "Qwen/Qwen2.5-1.5B-Instruct"
-  huggingFaceToken: ""
 
-args:
-  - "--model"
-  - "Qwen/Qwen2.5-1.5B-Instruct"
-  - "--dtype"
-  - "bfloat16"
-  - "--max-model-len"
-  - "4096"
+# SECRETS
+artifactory:
+  ARTIFACTORY_SECRET: "artifactory-cyber-secret"
+  HF_TOKEN: "artifactory-hf-token"
+  HF_ENDPOINT: "https://huggingface.co"
 
-env:
-  - name: HF_HOME
-    value: "/data/huggingface"
 
-service:
-  type: ClusterIP
-  port: 8000
+# vLLM
+llms:
+  # GPU0: Agent Executor / SLM
+  - modelName: "gpu-Ministral-3-8B-Reasoning"
+    replicaCount: 1
+    storageSize: "50Gi"
+    image:
+      repository: "vllm/vllm-openai"
+      tag: "v0.18.1"
+      pullPolicy: "IfNotPresent"
+    hardware:
+      gpuLimit: 1
+    args:
+      - "serve"
+      - "mistralai/Ministral-3-8B-Reasoning-2512"
+      - "--port"
+      - "8000"
+      - "--gpu-memory-utilization"
+      - "0.90"
+      - "--tensor-parallel-size"
+      - "1"
+      - "--dtype"
+      - "float16"
+      - "--max-model-len"
+      - "32768"
+      - "--tokenizer_mode"
+      - "mistral"
+      - "--config_format"
+      - "mistral"
+      - "--load_format"
+      - "mistral"
+      - "--tool-call-parser"
+      - "mistral"
+      - "--enable-auto-tool-choice"
 
-resources:
-  requests:
-    cpu: "4"
-    memory: "8Gi"
-    nvidia.com/gpu: "1"
-  limits:
-    cpu: "8"
-    memory: "16Gi"
-    nvidia.com/gpu: "1"
+  # GPU1&2: Orchestrator / LLM
+  - modelName: "gpu-Mistral-Small-24B-Instruct"
+    replicaCount: 1
+    storageSize: "60Gi"
+    image:
+      repository: "vllm/vllm-openai"
+      tag: "v0.18.1"
+      pullPolicy: "IfNotPresent"
+    hardware:
+      gpuLimit: 2 # Distributed across 2 GPUs
+    args:
+      - "serve"
+      - "mistralai/Mistral-Small-24B-Instruct-2501"
+      - "--port"
+      - "8000"
+      - "--gpu-memory-utilization"
+      - "0.90"
+      - "--tensor-parallel-size"
+      - "2" # 32 attention heads divide evenly by 2
+      - "--dtype"
+      - "float16"
+      - "--max-model-len"
+      - "32768"
+      - "--tokenizer_mode"
+      - "mistral"
+      - "--config_format"
+      - "mistral"
+      - "--load_format"
+      - "mistral"
+      - "--tool-call-parser"
+      - "mistral"
+      - "--enable-auto-tool-choice"
 
-persistence:
-  enabled: true
-  storageClass: ""
-  size: 10Gi
-  mountPath: /data/huggingface
+  # GPU1&2: Orchestrator / LLM 
+  # - modelName: "gpu-Mistral-Small-4-119B-NVFP4"
+  #   replicaCount: 1
+  #   storageSize: "120Gi"
+  #   image:
+  #     repository: "vllm/vllm-openai"
+  #     tag: "v0.18.1"
+  #     pullPolicy: "IfNotPresent"
+  #   hardware:
+  #     gpuLimit: 3
+  #   args:
+  #     - "serve"
+  #     - "mistralai/Mistral-Small-4-119B-2603-NVFP4"
+  #     - "--port"
+  #     - "8000"
+  #     - "--gpu-memory-utilization"
+  #     - "0.95"
+  #     - "--tensor-parallel-size"
+  #     - "3"
+  #     - "--dtype"
+  #     - "float16"
+  #     - "--max-model-len"
+  #     - "16384"
+  #     - "--tokenizer_mode"
+  #     - "mistral"
+  #     - "--config_format"
+  #     - "mistral"
+  #     - "--load_format"
+  #     - "mistral"
+  #     - "--tool-call-parser"
+  #     - "mistral"
+  #     - "--enable-auto-tool-choice"
 
-readinessProbe:
-  httpGet:
-    path: /health
-    port: 8000
-  initialDelaySeconds: 60
-  periodSeconds: 10
-  failureThreshold: 12
+  # GPU3: Extra models (eg: Embedding + Vision/OCR )
+  - modelName: "gpu-bge-and-ocr"
+    replicaCount: 1
+    storageSize: "30Gi"
+    image:
+      repository: "vllm/vllm-openai"
+      tag: "v0.18.1"
+      pullPolicy: "IfNotPresent"
+    hardware:
+      gpuLimit: 1
+    ports:
+      - 8000 # Embedding port
+      - 8001 # OCR / Vision port
+    command: ["/bin/sh", "-c"]
+    args:
+      - |
+        echo "Starting Embedding model on port 8000..."
+        vllm serve BAAI/bge-m3 \
+          --port 8000 \
+          --gpu-memory-utilization 0.20 \
+          --dtype float16 &
+        echo "Starting OCR/Vision model on port 8001..."
+        vllm serve Qwen/Qwen2-VL-7B-Instruct \
+          --port 8001 \
+          --gpu-memory-utilization 0.60 \
+          --dtype float16 \
+          --max-model-len 8192 &
+        wait -n
 
-livenessProbe:
-  httpGet:
-    path: /health
-    port: 8000
-  initialDelaySeconds: 90
-  periodSeconds: 30
-  failureThreshold: 5
+  # CPU Instruct Model (Qwen2.5 0.5B) (but should run on the gpu node as well)
+  - modelName: "cpu-Qwen2.5-0.5B-Instruct"
+    replicaCount: 1
+    storageSize: "10Gi"
+    image:
+      repository: "vllm/vllm-openai-cpu"
+      tag: "latest"
+      pullPolicy: "IfNotPresent"
+    hardware:
+      gpuLimit: 0
+    args:
+      - "serve"
+      - "Qwen/Qwen2.5-0.5B-Instruct"
+      - "--port"
+      - "8000"
+      # - "--served-model-name"
+      # - "Qwen/Qwen2.5-0.5B-Instruct"
+
+  # CPU Embedding Model (BGE-M3) (but should run on the gpu node as well)
+  - modelName: "cpu-bge-m3"
+    replicaCount: 1
+    storageSize: "10Gi"
+    image:
+      repository: "vllm/vllm-openai-cpu"
+      tag: "latest"
+      pullPolicy: "IfNotPresent"
+    hardware:
+      gpuLimit: 0
+    args:
+      - "serve"
+      - "BAAI/bge-m3"
+      - "--port"
+      - "8000"
+      # - "--served-model-name"
+      # - "BAAI/bge-m3"
+
+  

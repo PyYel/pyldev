@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: {{ .Release.Namespace | default "cyber-ai" }}
+data:
+  config.yaml: |-
+{{ .Files.Get "files/litellm-config.yaml" | nindent 4 }}

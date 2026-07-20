@@ -3,7 +3,9 @@ kind: Service
 metadata:
   name: litellm-service
 spec:
-  type: LoadBalancer  # Litellm is exposed for testing
+  type: LoadBalancer # ClusterIP # LoadBalancer  # Litellm is exposed for testing
+  loadBalancerSourceRanges:
+    - "213.41.94.220/32" # whitelisting while testing. .220/27 is ambigous, should be /32 but I will change it later on anyway
   ports:
   - port: 4000        # Exposed port
     targetPort: 4000  # internal containerPort specified deployment

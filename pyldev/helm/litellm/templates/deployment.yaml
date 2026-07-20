@@ -11,22 +11,39 @@ spec:
     metadata:
       labels:
         app: litellm
+      annotations:
+        # Automatically restarts LiteLLM pods when litellm-config.yaml changes
+        checksum/config: {{ .Files.Get "files/litellm-config.yaml" | sha256sum }}
     spec:
-      # imagePullSecrets:
-      #   - name: secret-for-when-we-deploy-through-artifactory    
+      imagePullSecrets:
+        - name: {{ .Values.artifactory.secret }}
       containers:
       - name: litellm
         image: litellm/litellm:latest
-        # image: artifactory.domain.com/docker-local/vllm/vllm-openai-cpu:latest
-        imagePullPolicy: IfNotPresent
-        args: ["--config", "/app/config.yaml", "--port", "4000"] 
+        imagePullPolicy: "IfNotPresent"
+        args: ["--config", "/app/config.yaml", "--port", "4000"]
         ports:
         - containerPort: 4000
         volumeMounts:
         - name: config-volume
           mountPath: /app/config.yaml
           subPath: config.yaml
+        env:
+          - name: LANGFUSE_PUBLIC_KEY
+            valueFrom:
+              secretKeyRef:
+                name: langfuse-secrets
+                key: LANGFUSE_PUBLIC_KEY
+                optional: true 
+          - name: LANGFUSE_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: langfuse-secrets
+                key: LANGFUSE_SECRET_KEY
+                optional: true 
+          - name: LANGFUSE_OTEL_HOST
+            value: {{ .Values.langfuseHost | quote }}
       volumes:
       - name: config-volume
         configMap:
-          name: config
+          name: litellm-config
