@@ -6,17 +6,18 @@
 apiVersion: v1
 kind: Service
 metadata:
-  # Dynamically names the service: e.g., vllm-mistralai-ministral-8b-instruct-service
   name: vllm-{{ $modelSlug }}-service
 spec:
   type: ClusterIP 
-  # clusterIP: None # Headless service for LiteLLM direct pod load balancing
   ports:
-  - port: 8000
-    targetPort: 8000
+  {{- range .ports | default (list 8000) }}
+    - name: http-{{ . }}
+      port: {{ . }}
+      targetPort: {{ . }}
+      protocol: TCP
+  {{- end }}
   selector:
-    # This must perfectly match the labels generated in deployment.yaml
-    app: vllm-gpu-{{ $modelSlug }}
+    app: vllm-{{ $modelSlug }}
 ---
 {{- end }}
 

@@ -1,0 +1,73 @@
+# HARDWARE
+storage:
+  className: "csi-cinder-high-speed" # OVH storage name
+  claimName: "vllm-model-cache"
+
+nodeSelector:
+#   nodepool: "pool-cyber-gpu-2" # Target GPU node pool
+
+tolerations:
+#   - key: "dedicated"
+#     operator: "Equal"
+#     value: "gpu"
+#     effect: "NoExecute" # NoSchedule # GPU allocation to pods specifying this toleration flag
+
+
+# SECRETS
+artifactory:
+  ARTIFACTORY_SECRET: "artifactory-cyber-secret"
+  HF_TOKEN: "artifactory-hf-token"
+  HF_ENDPOINT: "https://artifactory.henav34.eu/artifactory/api/huggingfaceml/cyber-hf-remote" # "https://huggingface.co"
+
+
+# vLLM
+llms:
+  # CPU Instruct Model (Qwen2.5 0.5B) (but should run on the gpu node as well)
+  - modelName: "cpu-Qwen2.5-0.5B-Instruct"
+    hfRepos:
+    - "Qwen/Qwen2.5-0.5B-Instruct"
+    replicaCount: 1
+    storageSize: "10Gi"
+    image:
+      repository: "vllm/vllm-openai-cpu"
+      tag: "latest"
+      pullPolicy: "IfNotPresent"
+    hardware:
+      gpuLimit: 0
+    args:
+      - "serve"
+      - "Qwen/Qwen2.5-0.5B-Instruct"
+      - "--port"
+      - "8000"
+      - "--load-format"
+      - "safetensors"
+      - "--gpu-memory-utilization"
+      - "0.15"
+      - "--max-model-len"
+      - "4096"
+      - "--host"
+      - "0.0.0.0"
+
+  # CPU Embedding Model (BGE-M3) (but should run on the gpu node as well)
+  - modelName: "cpu-bge-m3"
+    hfRepos:
+    - "BAAI/bge-m3"
+    replicaCount: 1
+    storageSize: "10Gi"
+    image:
+      repository: "vllm/vllm-openai-cpu"
+      tag: "latest"
+      pullPolicy: "IfNotPresent"
+    hardware:
+      gpuLimit: 0
+    args:
+      - "serve"
+      - "BAAI/bge-m3"
+      - "--port"
+      - "8000"
+      - "--gpu-memory-utilization"
+      - "0.15"
+      - "--max-model-len"
+      - "2048"
+      - "--host"
+      - "0.0.0.0"

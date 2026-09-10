@@ -1,14 +1,19 @@
 # To avoid downloading the weights every time a pod starts/restarts
 # Weights are saved into the cluster
 
+{{- range .Values.llms }}
+{{- $modelVolume := .modelName | lower | replace "/" "-" | replace "." "-" }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: vllm-model-cache
+  name: pvc-vllm-cache-{{ $modelVolume }}
+  namespace: cyber-ai
 spec:
   accessModes:
     - ReadWriteOnce 
-  storageClassName: local-path # k3d, might not work for k8 ?
+  storageClassName: {{ $.Values.storage.className }}
   resources:
     requests:
-      storage: 50Gi
+      storage: {{ .storageSize | default "100Gi" }} 
+---
+{{- end }}

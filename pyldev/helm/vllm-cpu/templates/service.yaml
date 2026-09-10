@@ -1,20 +1,25 @@
 # This exposes vLLM internally. 
 # The idea is to have litellm then connect to the service domain to expose the model
 
+{{- range .Values.llms }}
+{{- $modelSlug := .modelName | lower | replace "/" "-" | replace "." "-" }}
 apiVersion: v1
 kind: Service
 metadata:
-  # Dynamically names the service (e.g., vllm-qwen2-5-0-5b-instruct-service), just like the pod
-  name: vllm-cpu-{{ .Values.modelName | lower | replace "/" "-" | replace "." "-" }}-service
+  name: vllm-{{ $modelSlug }}-service
 spec:
   type: ClusterIP 
-  clusterIP: None # So it returns the IP of the pods instead of a single shared IP (litellm will load balance)
   ports:
-  - port: 8000
-    targetPort: 8000
+  {{- range .ports | default (list 8000) }}
+    - name: http-{{ . }}
+      port: {{ . }}
+      targetPort: {{ . }}
+      protocol: TCP
+  {{- end }}
   selector:
-    # Targets the pods matching this exact specific model deployment
-    app: vllm-cpu-{{ .Values.modelName | lower | replace "/" "-" | replace "." "-" }}
+    app: vllm-{{ $modelSlug }}
+---
+{{- end }}
 
 # So internally when litellm resolves model pods domains:
 

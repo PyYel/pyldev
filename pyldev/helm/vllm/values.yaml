@@ -10,24 +10,26 @@ tolerations:
   - key: "dedicated"
     operator: "Equal"
     value: "gpu"
-    # effect: "NoExecute" # NoSchedule # GPU allocation to pods specifying this toleration flag
+    effect: "NoExecute" # NoSchedule # GPU allocation to pods specifying this toleration flag
 
 
 # SECRETS
 artifactory:
   ARTIFACTORY_SECRET: "artifactory-cyber-secret"
   HF_TOKEN: "artifactory-hf-token"
-  HF_ENDPOINT: "https://huggingface.co"
+  HF_ENDPOINT: "https://artifactory.henav34.eu/artifactory/api/huggingfaceml/cyber-hf-remote" # "https://huggingface.co"
 
 
 # vLLM
 llms:
   # GPU0: Agent Executor / SLM
   - modelName: "gpu-Ministral-3-8B-Reasoning"
+    hfRepos:
+    - "mistralai/Ministral-3-8B-Reasoning-2512"
     replicaCount: 1
     storageSize: "50Gi"
     image:
-      repository: "vllm/vllm-openai"
+      repository: "artifactory.henav34.eu/cyber-docker/vllm/vllm-openai"
       tag: "v0.18.1"
       pullPolicy: "IfNotPresent"
     hardware:
@@ -51,16 +53,24 @@ llms:
       - "mistral"
       - "--load_format"
       - "mistral"
+      - "--reasoning-parser"
+      - "mistral"
       - "--tool-call-parser"
       - "mistral"
       - "--enable-auto-tool-choice"
+      # - "--load-format"
+      # - "safetensors"
+      - "--host"
+      - "0.0.0.0"
 
   # GPU1&2: Orchestrator / LLM
   - modelName: "gpu-Mistral-Small-24B-Instruct"
+    hfRepos:
+    - "mistralai/Mistral-Small-24B-Instruct-2501"
     replicaCount: 1
-    storageSize: "60Gi"
+    storageSize: "120Gi"
     image:
-      repository: "vllm/vllm-openai"
+      repository: "artifactory.henav34.eu/cyber-docker/vllm/vllm-openai"
       tag: "v0.18.1"
       pullPolicy: "IfNotPresent"
     hardware:
@@ -87,13 +97,50 @@ llms:
       - "--tool-call-parser"
       - "mistral"
       - "--enable-auto-tool-choice"
+      - "--load-format"
+      - "safetensors"
+      - "--host"
+      - "0.0.0.0"
 
-  # GPU1&2: Orchestrator / LLM 
-  # - modelName: "gpu-Mistral-Small-4-119B-NVFP4"
+  # # GPU1&2: Orchestrator / LLM
+  # # This requires L40S GPUs
+  # - modelName: "gpu-OpenAI-GPT-OSS-120B"
+  #   hfRepos:
+  #   - "openai/gpt-oss-120b"
   #   replicaCount: 1
   #   storageSize: "120Gi"
   #   image:
-  #     repository: "vllm/vllm-openai"
+  #     repository: "artifactory.henav34.eu/cyber-docker/vllm/vllm-openai"
+  #     tag: "v0.18.1"
+  #     pullPolicy: "IfNotPresent"
+  #   hardware:
+  #     gpuLimit: 2 # Distributed across 2 GPUs
+  #   args:
+  #     - "serve"
+  #     - "mistralai/Mistral-Small-24B-Instruct-2501"
+  #     - "--port"
+  #     - "8000"
+  #     - "--gpu-memory-utilization"
+  #     - "0.90"
+  #     - "--tensor-parallel-size"
+  #     - "2" # 32 attention heads divide evenly by 2
+  #     - "--max-model-len"
+  #     - "32768"
+  #     - "--enable-auto-tool-choice"
+  #     - "--load-format"
+  #     - "safetensors"
+  #     - "--host"
+  #     - "0.0.0.0"
+
+  # # GPU1&2: Orchestrator / LLM 
+  # # This requires L40S GPUs
+  # - modelName: "gpu-Mistral-Small-4-119B-NVFP4"
+      # hfRepos:
+      #- "mistralai/Mistral-Mistral-Small-4-119B-NVFP4-2501"
+  #   replicaCount: 1
+  #   storageSize: "120Gi"
+  #   image:
+  #     repository: "artifactory.henav34.eu/cyber-docker/vllm/vllm-openai"
   #     tag: "v0.18.1"
   #     pullPolicy: "IfNotPresent"
   #   hardware:
@@ -107,8 +154,6 @@ llms:
   #     - "0.95"
   #     - "--tensor-parallel-size"
   #     - "3"
-  #     - "--dtype"
-  #     - "float16"
   #     - "--max-model-len"
   #     - "16384"
   #     - "--tokenizer_mode"
@@ -120,13 +165,20 @@ llms:
   #     - "--tool-call-parser"
   #     - "mistral"
   #     - "--enable-auto-tool-choice"
+      # - "--load-format"
+      # - "safetensors"
+      # - "--host"
+      # - "0.0.0.0"
 
   # GPU3: Extra models (eg: Embedding + Vision/OCR )
   - modelName: "gpu-bge-and-ocr"
+    hfRepos:
+    - "BAAI/bge-m3"
+    - "Qwen/Qwen2-VL-7B-Instruct"
     replicaCount: 1
     storageSize: "30Gi"
     image:
-      repository: "vllm/vllm-openai"
+      repository: "artifactory.henav34.eu/cyber-docker/vllm/vllm-openai"
       tag: "v0.18.1"
       pullPolicy: "IfNotPresent"
     hardware:
@@ -134,56 +186,105 @@ llms:
     ports:
       - 8000 # Embedding port
       - 8001 # OCR / Vision port
-    command: ["/bin/sh", "-c"]
+    command: ["/bin/bash", "-c"]
     args:
       - |
         echo "Starting Embedding model on port 8000..."
         vllm serve BAAI/bge-m3 \
           --port 8000 \
           --gpu-memory-utilization 0.20 \
+          --host 0.0.0.0 \
           --dtype float16 &
         echo "Starting OCR/Vision model on port 8001..."
         vllm serve Qwen/Qwen2-VL-7B-Instruct \
           --port 8001 \
           --gpu-memory-utilization 0.60 \
           --dtype float16 \
-          --max-model-len 8192 &
+          --max-model-len 8192 \
+          --host 0.0.0.0 \
+          --load-format safetensors & 
         wait -n
 
-  # CPU Instruct Model (Qwen2.5 0.5B) (but should run on the gpu node as well)
-  - modelName: "cpu-Qwen2.5-0.5B-Instruct"
-    replicaCount: 1
-    storageSize: "10Gi"
-    image:
-      repository: "vllm/vllm-openai-cpu"
-      tag: "latest"
-      pullPolicy: "IfNotPresent"
-    hardware:
-      gpuLimit: 0
-    args:
-      - "serve"
-      - "Qwen/Qwen2.5-0.5B-Instruct"
-      - "--port"
-      - "8000"
-      # - "--served-model-name"
-      # - "Qwen/Qwen2.5-0.5B-Instruct"
+# # # FUTURE DEPLOYMENT
 
-  # CPU Embedding Model (BGE-M3) (but should run on the gpu node as well)
-  - modelName: "cpu-bge-m3"
-    replicaCount: 1
-    storageSize: "10Gi"
-    image:
-      repository: "vllm/vllm-openai-cpu"
-      tag: "latest"
-      pullPolicy: "IfNotPresent"
-    hardware:
-      gpuLimit: 0
-    args:
-      - "serve"
-      - "BAAI/bge-m3"
-      - "--port"
-      - "8000"
-      # - "--served-model-name"
-      # - "BAAI/bge-m3"
+#   - modelName: "gpu-Ministral-3-8B"
+#     hfRepos:
+#     - "mistralai/Ministral-3-8B-2512"
+#     replicaCount: 1
+#     storageSize: "50Gi"
+#     image:
+#       repository: "artifactory.henav34.eu/cyber-docker/vllm/vllm-openai"
+#       # tag: "v0.18.1"
+#       pullPolicy: "IfNotPresent"
+#     hardware:
+#       gpuLimit: 1
+#     args:
+#       - "serve"
+#       - "mistralai/Ministral-3-8B-2512"
+#       - "--port"
+#       - "8000"
+#       - "--gpu-memory-utilization"
+#       - "0.95"
+#       - "--tensor-parallel-size"
+#       - "1"
+#       - "--max-num-seqs"
+#       - "12"
+#       # - "--dtype"
+#       # - "float16"
+#       - "--max-model-len"
+#       - "32768"
+#       - "--tokenizer_mode"
+#       - "mistral"
+#       - "--config_format"
+#       - "--kv-cache-dtype"
+#       - "fp8"
+#       - "mistral"
+#       - "--tool-call-parser"
+#       - "mistral"
+#       - "--enable-auto-tool-choice"
+#       - "--load-format"
+#       - "safetensors"
+#       - "--host"
+#       - "0.0.0.0"
 
-  
+
+#   - modelName: "gpu-Devstral-Small-2"
+#     hfRepos:
+#     - "mistralai/Devstral-Small-2-24B-Instruct-2512"
+#     replicaCount: 1
+#     storageSize: "100Gi"
+#     image:
+#       repository: "artifactory.henav34.eu/cyber-docker/vllm/vllm-openai"
+#       # tag: "v0.18.1"
+#       pullPolicy: "IfNotPresent"
+#     hardware:
+#       gpuLimit: 2
+#     args:
+#       - "serve"
+#       - "mistralai/Devstral-Small-2-24B-Instruct-2512"
+#       - "--port"
+#       - "8000"
+#       - "--gpu-memory-utilization"
+#       - "0.95"
+#       - "--tensor-parallel-size"
+#       - "2"
+#       # - "--dtype"
+#       # - "float16"
+#       - "--max-model-len"
+#       - "65536"
+#       - "--max-num-seqs"
+#       - "2"
+#       - "--kv-cache-dtype"
+#       - "fp8"
+#       - "--tokenizer_mode"
+#       - "mistral"
+#       - "--config_format"
+#       - "mistral"
+#       - "--tool-call-parser"
+#       - "mistral"
+#       - "--enable-auto-tool-choice"
+#       - "--enable-chunked-prefill"
+#       - "--load-format"
+#       - "safetensors"
+#       - "--host"
+#       - "0.0.0.0"
